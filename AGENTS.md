@@ -59,6 +59,9 @@ All commits must follow:
 | `.../ollama_models.py` | Lists installed Ollama models that read images; used by the launcher and the settings page |
 | `.../pages.py` | Opens result pages (robots.txt, private-address guard) and reads schema.org Product/Offer data to verify and price them |
 | `.../pricing.py`, `.../matching.py` | Price parsing and ranges; similarity to the caller's `known_items` |
+| `.../autodetect.py` | Start-up helpers: load `TASADOR_ENV_FILE`, fill unset providers from local Ollama / SearXNG |
+| `apps/desktop/src-tauri` | Tauri 2 app (Rust): starts the engine hidden, port in `.env` (`TASADOR_PORT`), SearXNG in Docker, tray |
+| `apps/desktop/ui` | The app window's page (plain HTML/JS, no build step): status, port, pin, settings page in a frame |
 | `docs/ARCHITECTURE.md` | Colored map of the stages and deployments. Start here |
 | `docs/RESEARCH.md` | How Google Lens, Amazon, eBay and price comparison sites do it; the target pipeline and its status |
 
@@ -68,6 +71,7 @@ Dependency direction: `schemas`/`config` <- `images`, `local_readers`, `pricing`
 - Python setup: `cd services/tasador-engine && uv venv && uv pip install -e ".[ocr,barcode,heic,dev]"` (on this machine add `--native-tls`)
 - Run: `uv run uvicorn tasador_engine.main:app_from_env --factory --reload --port 8000`
 - Fully local stack: `docker compose --profile local up`
+- Desktop app: `Tasador-Desktop.bat`, or `cd apps/desktop/src-tauri && cargo build --release` (the window page needs no Node build)
 - Settings: every environment variable is listed in `.env.example` and read in `config.py`.
 
 ### 8. Gotchas

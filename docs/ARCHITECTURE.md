@@ -49,6 +49,38 @@ flowchart LR
     class claude,ollama,searx external
 ```
 
+## On your own computer: the desktop app
+
+`apps/desktop` is a Tauri 2 app: a small native window whose page (`ui/`) shows the engine's status, the port, and the engine's own settings page in a frame. The Rust side (`src-tauri/src/main.rs`) starts the engine hidden, restarts it when the port changes, starts SearXNG in Docker when no other search is chosen, and stops everything from the tray.
+
+```mermaid
+flowchart LR
+    win["Tasador window<br/>status · port · pin"]
+    rust["Rust side<br/>start / restart / stop,<br/>port check, tray"]
+    engine["Engine (Python)<br/>localhost:PORT<br/>settings page at /"]
+    env[".env<br/>TASADOR_PORT + saved choices"]
+    docker["SearXNG in Docker<br/>localhost:8888"]
+    ollama["Ollama<br/>localhost:11434"]
+
+    win -- "commands" --> rust
+    rust -- "starts hidden" --> engine
+    rust -- "docker compose up" --> docker
+    win -- "frame" --> engine
+    rust <--> env
+    engine <--> env
+    engine --> docker
+    engine --> ollama
+
+    classDef ours fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef input fill:#ede9fe,stroke:#7c3aed,color:#3b0764
+    classDef external fill:#f3f4f6,stroke:#6b7280,color:#374151
+    class win,rust,engine ours
+    class env input
+    class docker,ollama external
+```
+
+The engine reads `.env` itself at start (`autodetect.load_env_file`) and, with `TASADOR_AUTODETECT`, fills unset providers from what runs locally (`autodetect.autodetect_local`), so the app and `Tasador.bat` behave the same.
+
 ## From photos to JSON
 
 One request runs through four stages. Each stage is optional: a stage that is not configured, or fails, adds a line to `warnings` and the response carries what the other stages found. A request never fails because a provider is down.

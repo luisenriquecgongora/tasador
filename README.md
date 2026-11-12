@@ -203,6 +203,38 @@ Tasador is not tied to one AI company. The two steps that use an outside service
 
 Every provider except `anthropic` speaks the same OpenAI-style API, so the named ones are presets that only fill in the address; adding another is one line in `config.py`. Mix them freely, for example Gemini for vision and SearXNG for search. Local servers automatically get "thinking" turned off and a 4-photo limit; cloud APIs get neither.
 
+## 🔍 What is "local search" (SearXNG)?
+
+To find official pages, manuals, shops and prices, Tasador has to search the web. **SearXNG** is a free, open-source *meta-search engine*: it has no index of its own, but sends your search to Google, Bing, Brave, DuckDuckGo and others, and combines their results into one list.
+
+```mermaid
+flowchart LR
+    tasador["Tasador on your computer"]
+    searx["SearXNG<br/>(Docker container on your computer)"]
+    engines["Google · Bing · Brave · DuckDuckGo"]
+    tasador -- "search text only, e.g.<br/>'Pioneer DJM-900NXS2 cena'" --> searx
+    searx -- "same text" --> engines
+    engines -- "result lists" --> searx
+    searx -- "one combined list" --> tasador
+
+    classDef ours fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef local fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef external fill:#f3f4f6,stroke:#6b7280,color:#374151
+    class tasador ours
+    class searx local
+    class engines external
+```
+
+🟦 Tasador · 🟩 runs on your computer · ⬜ outside services
+
+"Local" means **SearXNG runs on your computer**, inside Docker. That is why:
+
+- **No account and no API key:** it uses the search engines' public pages, as a browser would.
+- **Private:** only the search text leaves your computer. Your photos, and which items you own, never do.
+- **Free:** no per-search cost. The trade-off is that it needs Docker Desktop, and some engines occasionally answer slowly or ask for a CAPTCHA; SearXNG then uses the others.
+
+Without Docker, choose **Brave Search** (an API key with a free tier) or **Claude web search** in the settings page.
+
 ## 📋 Requirements
 
 ### Always needed
@@ -315,6 +347,29 @@ Because the page can change where photos are sent, it is off unless the launcher
 
 The language, currency and country are not settings: the calling app sends them with each request (`locale`, `currency`, `country`).
 
+
+### Windows: the desktop app
+
+Double-click **[`Tasador-Desktop.bat`](Tasador-Desktop.bat)** for a small Tasador window instead of a console and a browser tab:
+
+```
+┌──────────────────────────────────────────────┐
+│ 🔎 Tasador   [Engine: running] [Local search: running] │
+│ Port [8000] [Apply]  [📌 Pin]  [Open in browser]       │
+├──────────────────────────────────────────────┤
+│  the settings page: status · recognition +    │
+│  model · links and prices · try a photo       │
+└──────────────────────────────────────────────┘
+          tray icon: Open · Restart engine · Quit
+```
+
+- **The engine runs hidden** inside the app, with no console window. Closing the window keeps Tasador in the tray; **Quit** in the tray stops everything.
+- **Port:** type one and press **Apply**. The engine restarts on it by itself. A port another program uses is refused, with the next free one suggested. The port is saved as `TASADOR_PORT` in `.env`, so `Tasador.bat` uses the same one.
+- **Pin** keeps the window above other windows, like a HUD.
+- **Local search:** if Docker Desktop is running and no other search is chosen, the app starts SearXNG and switches the engine to it as soon as it answers.
+- **First run** installs the engine (through `Tasador.bat`) and builds the app with Rust ([rustup.rs](https://rustup.rs)), which takes several minutes. After that it opens in seconds.
+
+This first version runs the engine from this folder. A stand-alone installer that includes Python is planned (see [FUTURE_PLANS.md](FUTURE_PLANS.md)).
 
 ### Any OS: from a terminal
 
@@ -510,6 +565,7 @@ Liveness, no auth.
 | `services/tasador-engine` | The FastAPI engine (`src/tasador_engine`) and its tests |
 | `docs/ARCHITECTURE.md` | Colored map of the stages and where the engine runs. Start here |
 | `Tasador.bat` | Windows launcher: installs or repairs, picks Ollama model and SearXNG, starts the engine, opens the settings page |
+| `Tasador-Desktop.bat`, `apps/desktop` | Desktop app (Tauri 2): small window with status, port and the settings page; engine hidden; tray icon |
 | `docker-compose.yml`, `deploy/searxng` | Fully local stack: engine + Ollama + SearXNG |
 | `render.yaml` | Render Blueprint |
 | `scripts/verify.py` | Every check CI runs, in one command |
