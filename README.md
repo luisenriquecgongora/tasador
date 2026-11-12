@@ -2,13 +2,23 @@
 
 > *"Show me what you've got, I'll tell you what it is and what it's worth."*
 > **Photos of a physical item in, JSON out: what it is and what it costs, with sources.**
-> Python 3.12 / FastAPI / zxing-cpp + RapidOCR / Claude or any local vision model / Claude web search or SearXNG
+> Python 3.11+ / FastAPI / zxing-cpp + RapidOCR / Claude or any local vision model / Claude web search or SearXNG
 
 [![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/License-PolyForm%20Shield%201.0.0-blue.svg)](LICENSE)
 [![Runs locally](https://img.shields.io/badge/Runs-Local_%7C_Render_%7C_Docker-emerald.svg)](#run-it-standalone-on-your-computer)
 [![Architecture](https://img.shields.io/badge/Docs-Architecture-purple.svg)](docs/ARCHITECTURE.md)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg?logo=python&logoColor=white)](#-requirements)
 
 *Tasador* is Spanish for appraiser. Point a phone at a mixer, a projector, a chair or a drill, send the photos, and get back the brand, model, type, serial number, and new and used price ranges with the shop pages they came from. It is a standalone service: it stores nothing and knows nothing about the app calling it.
+
+**What you need** ([full requirements](#-requirements)):
+
+| To run | You need |
+| :--- | :--- |
+| **The engine** (barcodes + label text) | Python 3.11+, ~350 MB disk, ~450 MB RAM, Windows / macOS / Linux |
+| **+ local AI recognition** | [Ollama](https://ollama.com) with a vision model: `qwen2.5vl:7b` (16 GB RAM or an 8 GB GPU) or `qwen3.5:2b` (a 4 GB GPU is enough) |
+| **+ local links and prices** | [Docker Desktop](https://www.docker.com/products/docker-desktop/) to run SearXNG |
+| **or hosted AI instead** | An [Anthropic API key](https://console.anthropic.com/) (paid per request) |
 
 ---
 
