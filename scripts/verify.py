@@ -28,6 +28,7 @@ VENV = ROOT / "services/tasador-engine/.venv"
 CHECKS: list[tuple[str, str, str, list[str]]] = [
     ("python", "ruff", ".", ["{ruff}", "check", "services/tasador-engine"]),
     ("python", "engine tests", "services/tasador-engine", ["{py}", "-m", "pytest", "-q"]),
+    ("desktop", "desktop tests", "apps/desktop/src-tauri", ["{cargo}", "test", "--release", "--quiet"]),
 ]
 # Linter run on each file an agent edits, by file extension ("{file}" is the file);
 # findings go back to the agent. Lint only, never formatters.
