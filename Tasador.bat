@@ -6,7 +6,7 @@ rem   1. installs (or repairs) the engine in services\tasador-engine\.venv
 rem   2. reads settings from .env next to this file, if present (copy .env.example)
 rem   3. recognition: uses Ollama if it is running, with an installed model that reads images
 rem   4. links and prices: starts SearXNG in Docker if Docker Desktop is running
-rem   5. starts the engine and opens the test page
+rem   5. starts the engine and opens the settings page, where you can change all of this
 rem Anything set in .env wins over these automatic choices.
 rem TASADOR_LAUNCHER_DRY_RUN=1 prints the choices and stops before starting the engine.
 
@@ -86,13 +86,17 @@ if defined TASADOR_SEARCH_PROVIDER goto :search_other
 if defined TASADOR_SEARXNG_URL goto :search_other
 if defined TASADOR_SEARCH_API_KEY goto :search_other
 if defined ANTHROPIC_API_KEY goto :search_other
+rem Already running (for example from an earlier start)? Then Docker is not touched at all.
+curl -s -o nul -m 3 http://localhost:8888/healthz && goto :searxng_ready
 docker info >nul 2>nul || goto :no_docker
-echo [Tasador] Links and prices: starting SearXNG in Docker ...
+echo [Tasador] Links and prices: starting SearXNG in Docker (can take a minute) ...
 pushd "%ROOT%"
 docker compose --profile local up -d searxng >nul 2>nul
 set "RC=%errorlevel%"
 popd
 if not "%RC%"=="0" goto :no_docker
+
+:searxng_ready
 set "TASADOR_SEARXNG_URL=http://localhost:8888"
 echo [Tasador] Links and prices: SearXNG on http://localhost:8888 (it keeps running in Docker after you close this window)
 goto :start
@@ -106,18 +110,23 @@ echo [Tasador] Links and prices: off (start Docker Desktop for local search, or 
 
 rem ---- 5. Start ------------------------------------------------------------------------
 :start
+rem The settings page at http://localhost:%PORT%/ (pick providers and models, try a photo)
+rem saves its changes to the .env next to this file.
+set "TASADOR_SETTINGS_UI=1"
+set "TASADOR_ENV_FILE=%ROOT%.env"
 if defined TASADOR_LAUNCHER_DRY_RUN goto :dry_run
-echo [Tasador] Starting on http://localhost:%PORT% - test page: http://localhost:%PORT%/docs
+echo [Tasador] Starting on http://localhost:%PORT%
+echo [Tasador]   settings and test page: http://localhost:%PORT%/   API docs: http://localhost:%PORT%/docs
 echo [Tasador] Close this window to stop it.
-rem Open the test page a few seconds later, once the engine is listening.
-start "" /b cmd /c "timeout /t 6 /nobreak >nul & start http://localhost:%PORT%/docs"
+rem Open the settings page a few seconds later, once the engine is listening.
+start "" /b cmd /c "timeout /t 6 /nobreak >nul & start http://localhost:%PORT%/"
 "%PY%" -m uvicorn tasador_engine.main:app_from_env --factory --app-dir "%ENGINE%\src" --host 127.0.0.1 --port %PORT%
 set "RC=%errorlevel%"
 if not "%RC%"=="0" pause
 exit /b %RC%
 
 :dry_run
-echo [Tasador] Dry run: vision=%TASADOR_VISION_PROVIDER% model=%TASADOR_VISION_MODEL% searxng=%TASADOR_SEARXNG_URL%
+echo [Tasador] Dry run: vision=%TASADOR_VISION_PROVIDER% model=%TASADOR_VISION_MODEL% searxng=%TASADOR_SEARXNG_URL% env_file=%TASADOR_ENV_FILE%
 exit /b 0
 
 :setup_failed
