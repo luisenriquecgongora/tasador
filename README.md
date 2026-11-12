@@ -263,11 +263,17 @@ See [Requirements](#-requirements) for what each option needs.
 
 ### Windows: double-click
 
-Double-click **[`Tasador.bat`](Tasador.bat)**. On first run it creates `services/tasador-engine/.venv` and installs the engine (a few minutes, mostly the OCR model). Then it starts the engine on `http://localhost:8000` and opens `http://localhost:8000/docs` in your browser. Close the window to stop it.
+Double-click **[`Tasador.bat`](Tasador.bat)**. It sets everything up by itself:
 
-- It reads settings from a `.env` file next to it, if you create one from [`.env.example`](.env.example).
-- If you set neither an Anthropic key nor a model URL and [Ollama](https://ollama.com) is running, it uses Ollama automatically.
-- It listens on `127.0.0.1` only, so other computers on your network cannot reach it.
+| Step | What it does |
+| :--- | :--- |
+| 1. Install | First run: creates `services/tasador-engine/.venv` and installs the engine (a few minutes, mostly the text-reading model). Later runs repair it if a package is missing |
+| 2. Settings | Reads a `.env` next to it, if you made one from [`.env.example`](.env.example). Anything set there wins over the automatic choices below |
+| 3. Recognition | If [Ollama](https://ollama.com) is running, uses it and picks an installed model that can read images (`qwen2.5vl`, `qwen3.5`, `gemma3`, `llava`...). If none is installed it tells you what to pull |
+| 4. Links and prices | If Docker Desktop is running, starts SearXNG in Docker (it keeps running after you close the window: `docker compose stop searxng` stops it) |
+| 5. Start | Starts the engine on `http://localhost:8000`, listening on this computer only, and opens the test page `http://localhost:8000/docs` |
+
+Close the window to stop the engine. Missing Ollama or Docker is not an error: that part is simply off, and the window says so.
 
 ### Any OS: from a terminal
 
