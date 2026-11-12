@@ -18,7 +18,7 @@
 | **The engine** (barcodes + label text) | Python 3.11+, ~350 MB disk, ~450 MB RAM, Windows / macOS / Linux |
 | **+ local AI recognition** | [Ollama](https://ollama.com) with a vision model: `qwen2.5vl:7b` (16 GB RAM or an 8 GB GPU) or `qwen3.5:2b` (a 4 GB GPU is enough) |
 | **+ local links and prices** | [Docker Desktop](https://www.docker.com/products/docker-desktop/) to run SearXNG |
-| **or hosted AI instead** | An [Anthropic API key](https://console.anthropic.com/) (paid per request) |
+| **or hosted AI instead** | An API key from Anthropic, OpenAI, Google Gemini, OpenRouter, Groq, Mistral, Together or xAI (paid per request) |
 
 ---
 
@@ -166,7 +166,7 @@ Send **1 to 8 photos of the same item**: for example the front, the back and a c
 
 - **Barcodes and printed text are read from every photo** and merged. A serial number on the back counts for the whole item.
 - **The model is told the photos are angles of one item**, and each line of text is tagged with the photo it came from ("photo 3: SERIAL AB1234567").
-- **Local models get at most 4 photos** (`TASADOR_OPENAI_MAX_IMAGES`), because each photo costs GPU memory and time. Tasador sends the first photo (usually the overall view), then the ones with a barcode, then the ones with the most text, and `warnings` says which ones the model saw. Claude gets all of them.
+- **Local models get at most 4 photos** (`TASADOR_VISION_MAX_IMAGES`), because each photo costs GPU memory and time. Tasador sends the first photo (usually the overall view), then the ones with a barcode, then the ones with the most text, and `warnings` says which ones the model saw. Claude gets all of them.
 - **Photos of different items** are not split into several results: the model describes the most prominent item and `warnings` says the photos looked like different items. Send one request per item.
 
 One good photo of a readable label usually beats several blurry overall shots.
@@ -177,8 +177,8 @@ How this design was chosen, and how Google Lens, Amazon, eBay and price comparis
 
 | | Hosted (e.g. Render) | Local (your computer) | Minimal (no providers) |
 | :--- | :--- | :--- | :--- |
-| Vision | Claude | Ollama / LM Studio (e.g. Qwen2.5-VL) | none |
-| Web search (links + prices) | Claude web search | SearXNG | none |
+| Vision | Claude or any other provider ([list](#-providers-claude-or-any-other)) | Ollama / LM Studio (e.g. Qwen2.5-VL) | none |
+| Web search (links + prices) | Brave Search or Claude web search | SearXNG | none |
 | Barcodes + printed text | yes (OCR needs ~450 MB RAM) | yes | yes |
 | Where photos go | Anthropic API | nowhere: they stay on the machine | nowhere |
 | Accuracy | best | good for branded items with a visible label | label text and barcodes only |
@@ -186,6 +186,22 @@ How this design was chosen, and how Google Lens, Amazon, eBay and price comparis
 `GET /v1/capabilities` reports which column a running copy is in, so a client can try a local copy first and fall back to a hosted one.
 
 ---
+
+## 🔌 Providers: Claude or any other
+
+Tasador is not tied to one AI company. The two steps that use an outside service each take a provider:
+
+| Step | Provider (`TASADOR_..._PROVIDER`) | What to set |
+| :--- | :--- | :--- |
+| **Vision** (what is it?) | `anthropic` | `ANTHROPIC_API_KEY` (model defaults to `claude-opus-5-5`) |
+| | `openai`, `gemini`, `openrouter`, `groq`, `mistral`, `together`, `xai` | `TASADOR_VISION_API_KEY` + `TASADOR_VISION_MODEL` (a model of theirs that reads images) |
+| | `ollama`, `lmstudio` | `TASADOR_VISION_MODEL` (Ollama defaults to `qwen2.5vl:7b`). No key, runs on your computer |
+| | `openai-compatible` | `TASADOR_VISION_BASE_URL` (+ key and model): any other server with an OpenAI-style `/chat/completions` API, such as vLLM or a company gateway |
+| **Web search** (links, prices) | `searxng` | `TASADOR_SEARXNG_URL`. No key, runs in Docker |
+| | `brave` | `TASADOR_SEARCH_API_KEY` from the Brave Search API |
+| | `anthropic` | `ANTHROPIC_API_KEY` (Claude's web search tool) |
+
+Every provider except `anthropic` speaks the same OpenAI-style API, so the named ones are presets that only fill in the address; adding another is one line in `config.py`. Mix them freely, for example Gemini for vision and SearXNG for search. Local servers automatically get "thinking" turned off and a 4-photo limit; cloud APIs get neither.
 
 ## 📋 Requirements
 
@@ -206,7 +222,7 @@ Optional but recommended: [**uv**](https://docs.astral.sh/uv/), which makes the 
 
 | For | You need | Hardware | Cost |
 | :--- | :--- | :--- | :--- |
-| **Local AI recognition** (level 2) | [Ollama](https://ollama.com) + `ollama pull qwen2.5vl:7b` (~6 GB download), port `11434` | 16 GB RAM, or a GPU with 8 GB+ VRAM for answers in seconds. On a CPU only it works but can take a minute per item. On smaller machines (e.g. a 4 GB GPU) use `qwen3.5:2b` (~2.7 GB): tested on a GTX 1650 laptop, about 25 s per item. Set `TASADOR_OPENAI_MODEL` to the model you pulled | free |
+| **Local AI recognition** (level 2) | [Ollama](https://ollama.com) + `ollama pull qwen2.5vl:7b` (~6 GB download), port `11434` | 16 GB RAM, or a GPU with 8 GB+ VRAM for answers in seconds. On a CPU only it works but can take a minute per item. On smaller machines (e.g. a 4 GB GPU) use `qwen3.5:2b` (~2.7 GB): tested on a GTX 1650 laptop, about 25 s per item. Set `TASADOR_VISION_MODEL` to the model you pulled | free |
 | **Local price search** (level 2b) | [Docker Desktop](https://www.docker.com/products/docker-desktop/) to run SearXNG, port `8888` | ~200 MB RAM | free |
 | **Claude** (level 3) | An [Anthropic API key](https://console.anthropic.com/) | nothing extra: the work happens at Anthropic | paid per request, see [pricing](https://www.anthropic.com/pricing) |
 | **Everything in Docker** | Docker Desktop (or Docker Engine + Compose v2) | the sum of the rows above | free |
@@ -266,18 +282,18 @@ Then add the level you want, by setting environment variables before the last co
 | Level | What you get | What to install | Settings |
 | :--- | :--- | :--- | :--- |
 | **1. Engine only** | Barcodes and label text (model, serial). No name guess, no prices | nothing more | none |
-| **2. Local AI** | Item recognised by a vision model on your computer. Photos never leave it | [Ollama](https://ollama.com), then `ollama pull qwen2.5vl:7b` (~6 GB; a GPU or 16 GB RAM helps) | `TASADOR_OPENAI_BASE_URL=http://localhost:11434/v1` |
+| **2. Local AI** | Item recognised by a vision model on your computer. Photos never leave it | [Ollama](https://ollama.com), then `ollama pull qwen2.5vl:7b` (~6 GB; a GPU or 16 GB RAM helps) | `TASADOR_VISION_PROVIDER=ollama` and `TASADOR_VISION_MODEL=<the model you pulled>` |
 | **2b. + local prices** | Prices from a search engine you run yourself, no API key | Docker: `docker compose --profile local up -d searxng` | `TASADOR_SEARXNG_URL=http://localhost:8888` |
 | **3. Claude** | Best recognition and live prices with sources | an [Anthropic API key](https://console.anthropic.com/) | `ANTHROPIC_API_KEY=...` |
 
-You can mix levels, for example Ollama for vision and Claude for prices: set `TASADOR_VISION_PROVIDER=openai-compatible` and `TASADOR_SEARCH_PROVIDER=anthropic`.
+You can mix levels, for example Ollama for vision and Claude for links and prices: set `TASADOR_VISION_PROVIDER=ollama` and `TASADOR_SEARCH_PROVIDER=anthropic`. Other providers work the same way, see [Providers](#-providers-claude-or-any-other).
 
 ### Everything in Docker
 
 ```bash
 docker compose --profile local up -d                       # engine + Ollama + SearXNG
 docker compose exec ollama ollama pull qwen2.5vl:7b
-# .env: TASADOR_OPENAI_BASE_URL=http://ollama:11434/v1  TASADOR_SEARXNG_URL=http://searxng:8080
+# .env: TASADOR_VISION_BASE_URL=http://ollama:11434/v1  TASADOR_VISION_MODEL=qwen2.5vl:7b  TASADOR_SEARXNG_URL=http://searxng:8080
 ```
 
 ### Try it
@@ -370,7 +386,7 @@ Response (shortened: real responses have up to 3 official, 8 reference and 15 pu
   "extracted": { "ocr_text": ["DJM-900NXS2", "SERIAL AB1234567"], "barcodes": [] },
   "similar_known_items": [{ "id": "e1", "similarity": 1.0 }],
   "warnings": [],
-  "provider": { "deployment": "local", "vision": "openai-compatible:qwen3.5:2b", "search": "searxng", "ocr": true, "barcode": true },
+  "provider": { "deployment": "local", "vision": "ollama:qwen3.5:2b", "search": "searxng", "ocr": true, "barcode": true },
   "timings_ms": { "local_read": 420, "vision": 23800, "search": 2100, "verify": 3400, "total": 29900 }
 }
 ```
@@ -390,6 +406,33 @@ Rules a client can rely on:
 - Every link is a page that appeared in real search results. Price ranges use only `verified` pages when there are any (`verified_only: true`); otherwise they come from search snippets and `warnings` says so. Prices are never converted between currencies.
 - A provider failure is a line in `warnings`, not an HTTP error. HTTP errors are only for bad input: `401` (token), `415` (content type), `422` (no images, too many, unreadable image, invalid context).
 - Tasador only suggests. The caller decides what to save.
+
+### Calling it from a desktop app on the same computer
+
+A desktop app (for example an Electron or Tauri app wrapping a web app) can run Tasador next to itself, so photos are analysed on the user's machine instead of in the cloud:
+
+```mermaid
+sequenceDiagram
+    participant D as Desktop app (main process)
+    participant T as Tasador (localhost:PORT)
+    participant W as Web page inside the app
+    participant H as Hosted Tasador (cloud)
+
+    D->>D: pick a free port, make a random token
+    D->>T: start with TASADOR_API_TOKEN=token<br/>TASADOR_CORS_ORIGINS=https://app.example.com
+    D->>W: hand over {url, token} through its bridge (preload)
+    alt desktop bridge present and /health answers
+        W->>T: POST /v1/identify + Authorization: Bearer token
+        T-->>W: JSON
+    else plain browser, or Tasador not running
+        W->>H: same request through the app's own backend
+        H-->>W: JSON
+    end
+```
+
+**What the token is for here.** Any website open in any browser on that computer can send requests to `http://localhost:PORT`. CORS only stops those sites from *reading* the answers, not from *sending* requests, which still use the user's machine, and their API credits if a cloud provider is configured. A random token made at each launch and given only to the app's own page means only that page can use the engine. Without a desktop app (`Tasador.bat`, your own scripts) leave the token empty: the engine listens on `127.0.0.1` only.
+
+The app's page needs its web origin in `TASADOR_CORS_ORIGINS`, and the response is the same JSON whether it came from the local or the hosted copy.
 
 ### `GET /v1/capabilities`
 
@@ -422,7 +465,7 @@ Tasador's own code is under the PolyForm Shield license. It uses, without bundli
 - **zxing-cpp** (Apache-2.0) for barcodes, **RapidOCR** (Apache-2.0) with PaddleOCR ONNX models for printed text, **Pillow** (MIT-CMU), **FastAPI** (MIT).
 - **SearXNG** (AGPL-3.0) runs only as a separate container in `docker-compose.yml`; Tasador talks to it over HTTP.
 - Local vision models carry their own licenses. Check the license of the model you pull (for example, Qwen2.5-VL sizes differ).
-- Price search through Claude follows the [Anthropic usage policies](https://www.anthropic.com/legal/aup). Tasador uses search engines and APIs, not scrapers; it does not crawl shops.
+- Web search through Claude follows the [Anthropic usage policies](https://www.anthropic.com/legal/aup). Tasador uses search engines and APIs, not scrapers; it does not crawl shops.
 
 ## 📄 License
 

@@ -50,7 +50,7 @@ All commits must follow:
 | `.../pipeline.py` | Runs the stages in order; turns provider failures into `warnings` |
 | `.../images.py` | Decode, resize, strip EXIF; image URL allowlist and download |
 | `.../local_readers.py` | Barcodes (zxing-cpp) and printed text (RapidOCR); both optional extras |
-| `.../providers/vision.py` | `AnthropicVision`, `OpenAICompatibleVision` (Ollama etc.), output schema and prompt |
+| `.../providers/vision.py` | `AnthropicVision` (Claude SDK) and `OpenAICompatibleVision` (every other provider and local server, via presets in `config.VISION_PRESETS`), output schema and prompt |
 | `.../providers/search.py` | `AnthropicWebSearch`, `SearxngSearch`: goal queries in, raw `SearchHit`s out |
 | `.../product_key.py` | GTIN checksum, product key (GTIN > brand + model > name), one search query per goal and language |
 | `.../links.py` | Sorts hits into official / reference / purchase; shop and marketplace domain lists |
@@ -71,6 +71,7 @@ Dependency direction: `schemas`/`config` <- `images`, `local_readers`, `pricing`
 - The Anthropic SDK 2.x runs on `httpx2`, not `httpx`: mock its transport with `httpx2.MockTransport`. The other providers use plain `httpx`.
 - Claude calls use the beta endpoint for `fallbacks="default"` (refusal fallback); keep `betas=["server-side-fallback-2026-07-01"]` with it.
 - The OCR extra pulls in OpenCV and needs ~450 MB RAM: leave it out on a 512 MB host (see `render.yaml`).
+- Settings are generic (`TASADOR_VISION_*`, `TASADOR_SEARCH_*`); the old `TASADOR_OPENAI_*` / `TASADOR_ANTHROPIC_*` names are read as fallbacks in `config.py`. Add a provider by adding a preset (OpenAI-compatible) or a class with the same method as the others.
 - SearXNG must have the JSON format enabled (`deploy/searxng/settings.yml`).
 - Ruff rules are pinned in `services/tasador-engine/pyproject.toml`.
 

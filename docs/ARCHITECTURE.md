@@ -99,7 +99,8 @@ Why this order:
 | Stage | Provider | Selected by | Needs |
 | :--- | :--- | :--- | :--- |
 | Vision | `AnthropicVision` | `TASADOR_VISION_PROVIDER=anthropic` | `ANTHROPIC_API_KEY` |
-| Vision | `OpenAICompatibleVision` | `TASADOR_VISION_PROVIDER=openai-compatible` | `TASADOR_OPENAI_BASE_URL` (Ollama, LM Studio, vLLM) |
+| Vision | `OpenAICompatibleVision` | `TASADOR_VISION_PROVIDER=openai`, `gemini`, `openrouter`, `groq`, `mistral`, `together`, `xai`, `ollama`, `lmstudio`, or `openai-compatible` | `TASADOR_VISION_MODEL`, `TASADOR_VISION_API_KEY` (cloud), `TASADOR_VISION_BASE_URL` (servers without a preset) |
+| Web search | `BraveSearch` | `TASADOR_SEARCH_PROVIDER=brave` | `TASADOR_SEARCH_API_KEY` |
 | Web search | `AnthropicWebSearch` | `TASADOR_SEARCH_PROVIDER=anthropic` | `ANTHROPIC_API_KEY` |
 | Web search | `SearxngSearch` | `TASADOR_SEARCH_PROVIDER=searxng` | `TASADOR_SEARXNG_URL`, JSON format on |
 | Barcodes | zxing-cpp | `barcode` extra installed | nothing |
