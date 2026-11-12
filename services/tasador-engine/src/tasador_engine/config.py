@@ -12,6 +12,7 @@ Web search is SearXNG, Brave Search or Claude's web search tool.
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from urllib.parse import urlparse
 
@@ -40,17 +41,17 @@ def _csv(value: str) -> list[str]:
     return [part.strip().lower() for part in value.split(",") if part.strip()]
 
 
-def _env(*names: str, default: str = "") -> str:
+def _env(env: Mapping[str, str], *names: str, default: str = "") -> str:
     """First non-empty variable among `names` (later names are older spellings)."""
     for name in names:
-        value = os.getenv(name, "").strip()
+        value = (env.get(name) or "").strip()
         if value:
             return value
     return default
 
 
-def _int(*names: str, default: int) -> int:
-    raw = _env(*names)
+def _int(env: Mapping[str, str], *names: str, default: int) -> int:
+    raw = _env(env, *names)
     return int(raw) if raw else default
 
 
@@ -105,33 +106,42 @@ class Settings:
     max_concurrency: int = 2
     request_timeout_seconds: int = 90
 
+    # Local settings page at "/" (the launcher turns it on). Never enable it on a server.
+    settings_ui: bool = False
+    # The .env file the settings page saves to. Empty: changes apply until the engine stops.
+    env_file: str = ""
+
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
+        """Settings from environment variables (or any mapping of them, e.g. a planned change)."""
+        e = os.environ if env is None else env
         return cls(
-            deployment=_env("TASADOR_DEPLOYMENT", default="self-hosted"),
-            api_token=_env("TASADOR_API_TOKEN"),
-            cors_origins=_csv(_env("TASADOR_CORS_ORIGINS")),
-            vision_provider=_env("TASADOR_VISION_PROVIDER", default="auto").lower(),
-            vision_model=_env("TASADOR_VISION_MODEL", "TASADOR_OPENAI_MODEL", "TASADOR_ANTHROPIC_MODEL"),
-            vision_base_url=_env("TASADOR_VISION_BASE_URL", "TASADOR_OPENAI_BASE_URL").rstrip("/"),
-            vision_api_key=_env("TASADOR_VISION_API_KEY", "TASADOR_OPENAI_API_KEY"),
-            vision_effort=_env("TASADOR_VISION_EFFORT", "TASADOR_ANTHROPIC_EFFORT", default="medium"),
-            vision_reasoning_effort=_env("TASADOR_VISION_REASONING_EFFORT", "TASADOR_OPENAI_REASONING_EFFORT"),
-            vision_max_images=_int("TASADOR_VISION_MAX_IMAGES", "TASADOR_OPENAI_MAX_IMAGES", default=0),
-            search_provider=_env("TASADOR_SEARCH_PROVIDER", default="auto").lower(),
-            searxng_url=_env("TASADOR_SEARXNG_URL").rstrip("/"),
-            search_api_key=_env("TASADOR_SEARCH_API_KEY"),
-            search_model=_env("TASADOR_SEARCH_MODEL", "TASADOR_ANTHROPIC_MODEL", default="claude-opus-5-5"),
-            search_max_uses=_int("TASADOR_SEARCH_MAX_USES", default=5),
-            verify_pages=_int("TASADOR_VERIFY_PAGES", default=8),
-            page_timeout_seconds=_int("TASADOR_PAGE_TIMEOUT_SECONDS", default=8),
-            anthropic_api_key=_env("ANTHROPIC_API_KEY"),
-            max_images=_int("TASADOR_MAX_IMAGES", default=8),
-            max_image_bytes=_int("TASADOR_MAX_IMAGE_BYTES", default=15 * 1024 * 1024),
-            max_image_side=_int("TASADOR_MAX_IMAGE_SIDE", default=1568),
-            allowed_image_hosts=_csv(_env("TASADOR_ALLOWED_IMAGE_HOSTS")),
-            max_concurrency=_int("TASADOR_MAX_CONCURRENCY", default=2),
-            request_timeout_seconds=_int("TASADOR_REQUEST_TIMEOUT_SECONDS", default=90),
+            deployment=_env(e, "TASADOR_DEPLOYMENT", default="self-hosted"),
+            api_token=_env(e, "TASADOR_API_TOKEN"),
+            cors_origins=_csv(_env(e, "TASADOR_CORS_ORIGINS")),
+            vision_provider=_env(e, "TASADOR_VISION_PROVIDER", default="auto").lower(),
+            vision_model=_env(e, "TASADOR_VISION_MODEL", "TASADOR_OPENAI_MODEL", "TASADOR_ANTHROPIC_MODEL"),
+            vision_base_url=_env(e, "TASADOR_VISION_BASE_URL", "TASADOR_OPENAI_BASE_URL").rstrip("/"),
+            vision_api_key=_env(e, "TASADOR_VISION_API_KEY", "TASADOR_OPENAI_API_KEY"),
+            vision_effort=_env(e, "TASADOR_VISION_EFFORT", "TASADOR_ANTHROPIC_EFFORT", default="medium"),
+            vision_reasoning_effort=_env(e, "TASADOR_VISION_REASONING_EFFORT", "TASADOR_OPENAI_REASONING_EFFORT"),
+            vision_max_images=_int(e, "TASADOR_VISION_MAX_IMAGES", "TASADOR_OPENAI_MAX_IMAGES", default=0),
+            search_provider=_env(e, "TASADOR_SEARCH_PROVIDER", default="auto").lower(),
+            searxng_url=_env(e, "TASADOR_SEARXNG_URL").rstrip("/"),
+            search_api_key=_env(e, "TASADOR_SEARCH_API_KEY"),
+            search_model=_env(e, "TASADOR_SEARCH_MODEL", "TASADOR_ANTHROPIC_MODEL", default="claude-opus-5-5"),
+            search_max_uses=_int(e, "TASADOR_SEARCH_MAX_USES", default=5),
+            verify_pages=_int(e, "TASADOR_VERIFY_PAGES", default=8),
+            page_timeout_seconds=_int(e, "TASADOR_PAGE_TIMEOUT_SECONDS", default=8),
+            anthropic_api_key=_env(e, "ANTHROPIC_API_KEY"),
+            max_images=_int(e, "TASADOR_MAX_IMAGES", default=8),
+            max_image_bytes=_int(e, "TASADOR_MAX_IMAGE_BYTES", default=15 * 1024 * 1024),
+            max_image_side=_int(e, "TASADOR_MAX_IMAGE_SIDE", default=1568),
+            allowed_image_hosts=_csv(_env(e, "TASADOR_ALLOWED_IMAGE_HOSTS")),
+            max_concurrency=_int(e, "TASADOR_MAX_CONCURRENCY", default=2),
+            request_timeout_seconds=_int(e, "TASADOR_REQUEST_TIMEOUT_SECONDS", default=90),
+            settings_ui=_env(e, "TASADOR_SETTINGS_UI").lower() in ("1", "true", "yes"),
+            env_file=_env(e, "TASADOR_ENV_FILE"),
         )
 
     # --- Resolution: what actually runs, after "auto" and presets are applied.

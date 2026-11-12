@@ -1,5 +1,6 @@
 """HTTP API.
 
+    GET  /                  local settings page (only when TASADOR_SETTINGS_UI is on)
     GET  /health            liveness, no auth
     GET  /v1/capabilities   which stages and providers this copy has
     POST /v1/identify       photos in, IdentifyResponse out
@@ -28,6 +29,7 @@ from .pipeline import Pipeline
 from .providers.search import SearchProvider, build_search
 from .providers.vision import VisionProvider, build_vision
 from .schemas import Capabilities, IdentifyContext, IdentifyJsonRequest, IdentifyResponse
+from .settings_ui import add_settings_ui
 
 _FROM_SETTINGS = object()
 
@@ -79,6 +81,9 @@ def create_app(
     image_client = http_client or httpx.AsyncClient(timeout=30, verify=tls_context())
 
     app = FastAPI(title="Tasador engine", version=__version__)
+    # The settings page can swap providers while the engine runs, so handlers read the
+    # current pipeline from app.state instead of keeping their own copy.
+    app.state.pipeline = pipeline
     if settings.cors_origins:
         app.add_middleware(
             CORSMiddleware,
@@ -103,7 +108,7 @@ def create_app(
     async def capabilities() -> Capabilities:
         return Capabilities(
             engine_version=__version__,
-            provider=pipeline.provider_info(),
+            provider=app.state.pipeline.provider_info(),
             heic=HEIC_SUPPORTED,
             url_images=bool(settings.allowed_image_hosts),
             max_images=settings.max_images,
@@ -129,8 +134,10 @@ def create_app(
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except ValidationError as exc:
             raise HTTPException(status_code=422, detail=json.loads(exc.json(include_url=False))) from exc
-        return await pipeline.run(images, context)
+        return await app.state.pipeline.run(images, context)
 
+    if settings.settings_ui:
+        add_settings_ui(app)
     return app
 
 

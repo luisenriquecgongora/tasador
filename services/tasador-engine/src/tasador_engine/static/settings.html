@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tasador settings</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1f2430; --muted: #6b7280; --line: #e3e6ea;
+    --accent: #2563eb; --accent-text: #ffffff; --ok: #15803d; --ok-bg: #dcfce7; --warn: #a16207; --warn-bg: #fef9c3;
+    --off: #6b7280; --off-bg: #f3f4f6; --bad: #b91c1c; --bad-bg: #fee2e2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --card: #1b1f27; --text: #e7e9ee; --muted: #9aa3b2; --line: #2c323d;
+      --accent: #5b8cff; --accent-text: #0b1020; --ok: #86efac; --ok-bg: #14301f; --warn: #fde68a; --warn-bg: #3a3214;
+      --off: #9aa3b2; --off-bg: #262b35; --bad: #fca5a5; --bad-bg: #3b1d1d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 0 0 4px; }
+  p.lead, .hint { color: var(--muted); margin: 0 0 12px; }
+  .hint { font-size: 13px; margin: 6px 0 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-top: 16px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip { border-radius: 999px; padding: 3px 10px; font-size: 13px; background: var(--off-bg); color: var(--off); }
+  .chip.ok { background: var(--ok-bg); color: var(--ok); } .chip.warn { background: var(--warn-bg); color: var(--warn); }
+  .chip.bad { background: var(--bad-bg); color: var(--bad); }
+  .modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin: 12px 0; }
+  .mode { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; display: block; }
+  .mode input { margin-right: 6px; }
+  .mode small { display: block; color: var(--muted); margin-left: 22px; font-size: 12.5px; }
+  .mode:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  label.f { display: block; font-size: 13px; color: var(--muted); }
+  label.f input, label.f select { display: block; width: 100%; margin-top: 4px; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; }
+  .hidden { display: none !important; }
+  .actions { display: flex; align-items: center; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+  button { border: 0; border-radius: 8px; padding: 10px 16px; font: inherit; font-weight: 600; cursor: pointer;
+    background: var(--accent); color: var(--accent-text); }
+  button:disabled { opacity: .6; cursor: progress; }
+  #toast { font-size: 14px; }
+  #toast.ok { color: var(--ok); } #toast.bad { color: var(--bad); }
+  .result h3 { margin: 16px 0 6px; font-size: 15px; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 14px; }
+  .kv dt { color: var(--muted); } .kv dd { margin: 0; overflow-wrap: anywhere; }
+  ul.links { list-style: none; padding: 0; margin: 0; font-size: 14px; }
+  ul.links li { padding: 6px 0; border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  ul.links a { color: var(--accent); overflow-wrap: anywhere; }
+  .tag { font-size: 12px; border-radius: 6px; padding: 1px 6px; background: var(--off-bg); color: var(--off); white-space: nowrap; }
+  .tag.ok { background: var(--ok-bg); color: var(--ok); }
+  pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow: auto; font-size: 12.5px; max-height: 420px; }
+  details summary { cursor: pointer; color: var(--muted); margin-top: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Tasador</h1>
+  <p class="lead">Choose who recognises the item and who searches for links and prices. Changes apply immediately.</p>
+  <div class="chips" id="status"><span class="chip">Loading…</span></div>
+
+  <section class="card">
+    <h2>1. Recognition: what is it?</h2>
+    <div class="modes" id="vision-modes">
+      <label class="mode"><input type="radio" name="vmode" value="local">Local (Ollama)<small>Free. Photos stay on this computer.</small></label>
+      <label class="mode"><input type="radio" name="vmode" value="claude">Claude<small>Best quality. Paid per photo.</small></label>
+      <label class="mode"><input type="radio" name="vmode" value="cloud">Other cloud AI<small>OpenAI, Gemini, OpenRouter, Groq…</small></label>
+      <label class="mode"><input type="radio" name="vmode" value="off">Off<small>Barcodes and label text only.</small></label>
+    </div>
+    <div class="fields" data-for="local">
+      <label class="f">Model<select id="ollama-model"></select></label>
+      <label class="f">…or another model name<input id="ollama-other" placeholder="e.g. qwen2.5vl:7b"></label>
+    </div>
+    <p class="hint" data-for="local" id="ollama-hint"></p>
+    <div class="fields" data-for="claude">
+      <label class="f">Anthropic API key<input id="anthropic-key" type="password" autocomplete="off"></label>
+      <label class="f">Model<input id="claude-model" placeholder="claude-opus-5-5"></label>
+      <label class="f">Effort<select id="claude-effort">
+        <option value="low">low (fastest)</option><option value="medium">medium</option><option value="high">high</option>
+        <option value="xhigh">xhigh</option><option value="max">max (slowest)</option></select></label>
+    </div>
+    <div class="fields" data-for="cloud">
+      <label class="f">Provider<select id="cloud-preset"></select></label>
+      <label class="f">Model (one that reads images)<input id="cloud-model" placeholder="the provider's model name"></label>
+      <label class="f">API key<input id="cloud-key" type="password" autocomplete="off"></label>
+      <label class="f" id="cloud-url-box">Server address<input id="cloud-url" placeholder="https://…/v1"></label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2. Links and prices: web search</h2>
+    <div class="modes">
+      <label class="mode"><input type="radio" name="smode" value="searxng">Local search (SearXNG)<small>Free. Needs Docker Desktop.</small></label>
+      <label class="mode"><input type="radio" name="smode" value="brave">Brave Search<small>API key, free tier available.</small></label>
+      <label class="mode"><input type="radio" name="smode" value="anthropic">Claude web search<small>Uses the Anthropic key. Paid.</small></label>
+      <label class="mode"><input type="radio" name="smode" value="none">Off<small>No links, no prices.</small></label>
+    </div>
+    <p class="hint" data-for-s="searxng" id="searxng-hint"></p>
+    <div class="fields" data-for-s="brave"><label class="f">Brave Search API key<input id="brave-key" type="password" autocomplete="off"></label></div>
+    <div class="fields" data-for-s="anthropic"><label class="f">Anthropic API key (shared with recognition)<input id="anthropic-key-2" type="password" autocomplete="off"></label></div>
+  </section>
+
+  <section class="card">
+    <h2>3. Advanced</h2>
+    <div class="fields">
+      <label class="f">Shop pages to open and check (0–20)<input id="verify-pages" type="number" min="0" max="20" placeholder="8"></label>
+      <label class="f">Photos the AI looks at (0 = automatic)<input id="max-images" type="number" min="0" max="8" placeholder="0"></label>
+    </div>
+    <div class="actions">
+      <button id="save">Save and apply</button><span id="toast"></span>
+    </div>
+    <p class="hint" id="env-hint"></p>
+  </section>
+
+  <section class="card">
+    <h2>Try it</h2>
+    <p class="hint">Photos of one item, from one or more angles. A close-up of the label helps most.</p>
+    <div class="fields" style="margin-top:12px">
+      <label class="f">Photos<input id="photos" type="file" accept="image/*" multiple></label>
+      <label class="f">Currency<select id="currency"><option>PLN</option><option>EUR</option><option>USD</option><option>GBP</option><option>CZK</option></select></label>
+      <label class="f">Country<input id="country" value="PL" maxlength="2"></label>
+      <label class="f">Language<input id="locale" value="pl" maxlength="5"></label>
+    </div>
+    <div class="actions"><button id="identify">Identify</button><span id="identify-status" class="hint"></span></div>
+    <div id="result" class="result"></div>
+  </section>
+</main>
+<script>
+const UI_KEY = "__UI_KEY__";
+const $ = (id) => document.getElementById(id);
+let state = null;
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) k === "class" ? (node.className = v) : node.setAttribute(k, v);
+  for (const child of children) node.append(child instanceof Node ? child : document.createTextNode(String(child ?? "")));
+  return node;
+}
+const radio = (name) => document.querySelector(`input[name=${name}]:checked`)?.value;
+function setRadio(name, value) { const r = document.querySelector(`input[name=${name}][value="${value}"]`); if (r) r.checked = true; }
+
+function showModes() {
+  const v = radio("vmode"), s = radio("smode");
+  document.querySelectorAll("[data-for]").forEach((n) => n.classList.toggle("hidden", n.dataset.for !== v));
+  document.querySelectorAll("[data-for-s]").forEach((n) => n.classList.toggle("hidden", n.dataset.forS !== s));
+  $("cloud-url-box").classList.toggle("hidden", $("cloud-preset").value !== "openai-compatible");
+}
+
+function render() {
+  const { active, values, secrets, ollama, searxng, presets, env_file } = state;
+  const chips = [
+    [`Recognition: ${active.vision || "off"}`, active.vision ? "ok" : "warn"],
+    [`Search: ${active.search || "off"}`, active.search ? "ok" : "warn"],
+    [`Ollama: ${ollama.running ? `running, ${ollama.models.length} vision model(s)` : "not running"}`, ollama.running ? "ok" : ""],
+    [`SearXNG: ${searxng.reachable ? "running" : "not running"}`, searxng.reachable ? "ok" : ""],
+    [`Label text: ${active.ocr ? "on" : "off"}`, active.ocr ? "ok" : ""],
+    [`Barcodes: ${active.barcode ? "on" : "off"}`, active.barcode ? "ok" : ""],
+  ];
+  $("status").replaceChildren(...chips.map(([text, cls]) => el("span", { class: `chip ${cls}` }, text)));
+
+  const vp = values.TASADOR_VISION_PROVIDER || "auto";
+  const activeVision = active.vision || "";
+  const vmode = vp === "ollama" ? "local" : vp === "anthropic" ? "claude" : vp === "none" ? "off"
+    : vp === "auto" ? (activeVision.startsWith("anthropic") ? "claude" : activeVision.startsWith("ollama") || activeVision.startsWith("openai-compatible") ? "local" : "off")
+    : "cloud";
+  setRadio("vmode", vmode);
+
+  const model = values.TASADOR_VISION_MODEL || "";
+  $("ollama-model").replaceChildren(...(ollama.models.length ? ollama.models : ["(no vision model installed)"]).map((m) => el("option", { value: m }, m)));
+  if (ollama.models.includes(model)) $("ollama-model").value = model; else if (model && vmode === "local") $("ollama-other").value = model;
+  $("ollama-hint").textContent = !ollama.running ? "Ollama is not running: start it, then reload this page."
+    : !ollama.models.length ? "No installed model can read images. In a terminal run: ollama pull qwen3.5:2b (4 GB GPU) or ollama pull qwen2.5vl:7b (8 GB GPU / 16 GB RAM)."
+    : "Models installed in Ollama that can read images, best first.";
+
+  $("claude-model").value = vmode === "claude" ? model : "";
+  $("claude-effort").value = values.TASADOR_VISION_EFFORT || "medium";
+  const presetOptions = [...presets.filter((p) => p !== "ollama"), "openai-compatible"];
+  $("cloud-preset").replaceChildren(...presetOptions.map((p) => el("option", { value: p }, p)));
+  if (vmode === "cloud") { $("cloud-preset").value = vp; $("cloud-model").value = model; $("cloud-url").value = values.TASADOR_VISION_BASE_URL || ""; }
+
+  for (const [id, key] of [["anthropic-key", "ANTHROPIC_API_KEY"], ["anthropic-key-2", "ANTHROPIC_API_KEY"], ["cloud-key", "TASADOR_VISION_API_KEY"], ["brave-key", "TASADOR_SEARCH_API_KEY"]]) {
+    $(id).value = ""; $(id).placeholder = secrets[key] ? "saved ✓ (leave empty to keep)" : "not set";
+  }
+
+  const sp = values.TASADOR_SEARCH_PROVIDER || "auto";
+  const activeSearch = active.search || "";
+  setRadio("smode", sp !== "auto" ? sp : activeSearch.startsWith("searxng") ? "searxng" : activeSearch.startsWith("brave") ? "brave" : activeSearch.startsWith("anthropic") ? "anthropic" : "none");
+  $("searxng-hint").textContent = searxng.reachable ? `Running at ${searxng.url}.`
+    : `Not running at ${searxng.url}. Start Docker Desktop and run Tasador.bat again (or: docker compose --profile local up -d searxng).`;
+
+  $("verify-pages").value = values.TASADOR_VERIFY_PAGES || "";
+  $("max-images").value = values.TASADOR_VISION_MAX_IMAGES || "";
+  $("env-hint").textContent = env_file ? `Saved to ${env_file}.` : "Changes apply until the engine stops (no .env file configured).";
+  showModes();
+}
+
+function collectChanges() {
+  const c = {};
+  const secret = (key, id) => { const v = $(id).value.trim(); if (v) c[key] = v; };
+  switch (radio("vmode")) {
+    case "local":
+      c.TASADOR_VISION_PROVIDER = "ollama"; c.TASADOR_VISION_BASE_URL = "";
+      c.TASADOR_VISION_MODEL = $("ollama-other").value.trim() || (state.ollama.models.length ? $("ollama-model").value : "");
+      break;
+    case "claude":
+      c.TASADOR_VISION_PROVIDER = "anthropic"; c.TASADOR_VISION_BASE_URL = "";
+      c.TASADOR_VISION_MODEL = $("claude-model").value.trim(); c.TASADOR_VISION_EFFORT = $("claude-effort").value;
+      secret("ANTHROPIC_API_KEY", "anthropic-key");
+      break;
+    case "cloud":
+      c.TASADOR_VISION_PROVIDER = $("cloud-preset").value; c.TASADOR_VISION_MODEL = $("cloud-model").value.trim();
+      c.TASADOR_VISION_BASE_URL = $("cloud-preset").value === "openai-compatible" ? $("cloud-url").value.trim() : "";
+      secret("TASADOR_VISION_API_KEY", "cloud-key");
+      break;
+    case "off": c.TASADOR_VISION_PROVIDER = "none"; break;
+  }
+  const s = radio("smode");
+  c.TASADOR_SEARCH_PROVIDER = s;
+  if (s === "searxng") c.TASADOR_SEARXNG_URL = state.searxng.url;
+  if (s === "brave") secret("TASADOR_SEARCH_API_KEY", "brave-key");
+  if (s === "anthropic") secret("ANTHROPIC_API_KEY", "anthropic-key-2");
+  c.TASADOR_VERIFY_PAGES = $("verify-pages").value.trim();
+  c.TASADOR_VISION_MAX_IMAGES = $("max-images").value.trim();
+  return c;
+}
+
+async function load() {
+  const response = await fetch("/ui/state");
+  state = await response.json();
+  render();
+}
+
+async function save() {
+  const toast = $("toast");
+  $("save").disabled = true; toast.className = ""; toast.textContent = "Saving…";
+  try {
+    const response = await fetch("/ui/settings", {
+      method: "POST", headers: { "Content-Type": "application/json", "X-Tasador-UI": UI_KEY },
+      body: JSON.stringify({ changes: collectChanges() }),
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail));
+    state = body; render();
+    toast.className = "ok"; toast.textContent = "Saved. The engine is using the new settings.";
+  } catch (error) {
+    toast.className = "bad"; toast.textContent = `Not saved: ${error.message}`;
+  } finally { $("save").disabled = false; }
+}
+
+function linkList(items, describe) {
+  if (!items.length) return el("p", { class: "hint" }, "None found.");
+  return el("ul", { class: "links" }, ...items.map((item) => {
+    const verified = item.verified === "gtin" || item.verified === "model";
+    return el("li", {}, el("span", { class: `tag ${verified ? "ok" : ""}` }, verified ? `confirmed (${item.verified})` : item.verified),
+      ...describe(item), el("a", { href: item.url, target: "_blank", rel: "noopener noreferrer" }, item.title || item.url));
+  }));
+}
+const range = (r, cur) => (r ? `${r.min.toLocaleString()}–${r.max.toLocaleString()} ${cur} (median ${r.median.toLocaleString()}, ${r.count} offer${r.count > 1 ? "s" : ""})` : "–");
+
+function showResult(data) {
+  const b = data.best, p = data.price;
+  const rows = [["Name", b.name], ["Brand", b.brand], ["Model", b.model], ["Type", b.type], ["Barcode (GTIN)", b.gtin],
+    ["Serial", b.serial_number], ["Confidence", `${Math.round((b.confidence || 0) * 100)}%`], ["Evidence", (b.evidence || []).join(", ")]];
+  $("result").replaceChildren(
+    el("h3", {}, "Identification"),
+    el("dl", { class: "kv" }, ...rows.flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v ?? "–")])),
+    el("h3", {}, `Price${p.verified_only ? " (confirmed on shop pages)" : ""}`),
+    el("dl", { class: "kv" }, el("dt", {}, "New"), el("dd", {}, range(p.new, p.currency)), el("dt", {}, "Used"), el("dd", {}, range(p.used, p.currency))),
+    el("h3", {}, "Official pages"), linkList(data.links.official, () => []),
+    el("h3", {}, "Manuals, specs, reviews"), linkList(data.links.reference, (l) => [el("span", { class: "tag" }, l.kind)]),
+    el("h3", {}, "Where to buy"), linkList(data.links.purchase, (l) => [
+      el("span", { class: "tag" }, l.page === "search" ? "browse" : l.condition),
+      ...(l.price ? [el("strong", {}, `${l.price.toLocaleString()} ${l.currency || ""}`)] : [])]),
+    ...(data.warnings.length ? [el("h3", {}, "Warnings"), el("ul", {}, ...data.warnings.map((w) => el("li", {}, w)))] : []),
+    el("p", { class: "hint" }, `Took ${(data.timings_ms.total / 1000).toFixed(1)} s · ${data.provider.vision || "no recognition"} · ${data.provider.search || "no search"}`),
+    el("details", {}, el("summary", {}, "Raw JSON"), el("pre", {}, JSON.stringify(data, null, 2))),
+  );
+}
+
+async function identify() {
+  const files = $("photos").files, status = $("identify-status");
+  if (!files.length) { status.textContent = "Choose at least one photo."; return; }
+  const form = new FormData();
+  for (const file of files) form.append("images", file);
+  form.append("context", JSON.stringify({ currency: $("currency").value, country: $("country").value.trim().toUpperCase() || null, locale: $("locale").value.trim() || "en" }));
+  $("identify").disabled = true; status.textContent = "Working… local models can take up to a minute.";
+  try {
+    const response = await fetch("/v1/identify", { method: "POST", body: form });
+    const data = await response.json();
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail));
+    showResult(data); status.textContent = "";
+  } catch (error) { status.textContent = `Failed: ${error.message}`; }
+  finally { $("identify").disabled = false; }
+}
+
+document.addEventListener("change", (event) => { if (event.target.name === "vmode" || event.target.name === "smode" || event.target.id === "cloud-preset") showModes(); });
+$("save").addEventListener("click", save);
+$("identify").addEventListener("click", identify);
+load().catch((error) => { $("status").replaceChildren(el("span", { class: "chip bad" }, `Could not load settings: ${error.message}`)); });
+</script>
+</body>
+</html>
