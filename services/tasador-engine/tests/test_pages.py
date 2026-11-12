@@ -56,9 +56,9 @@ async def test_check_links_reads_exact_prices():
 
     links = Links(purchase=[PriceSource(title="t", url="https://a.example/1", price=1.0, currency="PLN"),
                             PriceSource(title="t", url="https://b.example/2")])
-    read = await check_links(links, ProductKey(kind="brand_model", value="x"), "DJM-900NXS2", Pages(), limit=8)
+    read, gtins = await check_links(links, ProductKey(kind="brand_model", value="x"), "DJM-900NXS2", Pages(), limit=8)
     first, second = links.purchase
-    assert read == 1
+    assert (read, gtins) == (1, set())
     assert (first.price, first.condition, first.availability, first.verified) == (9800.0, "used", "OutOfStock", "model")
     assert second.verified == "unchecked"
 

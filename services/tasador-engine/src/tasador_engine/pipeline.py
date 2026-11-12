@@ -177,23 +177,29 @@ class Pipeline:
         finally:
             timings["search"] = int((time.perf_counter() - t) * 1000)
 
-        links = sort_hits(hits, best.brand)
+        links = sort_hits(hits, best.brand, best.model if best.key.kind != "name" else None)
         if self.settings.verify_pages > 0 and (links.purchase or links.official):
             t = time.perf_counter()
-            await check_links(links, best.key, best.model, self.fetcher, self.settings.verify_pages)
+            _, page_gtins = await check_links(links, best.key, best.model, self.fetcher, self.settings.verify_pages)
             timings["verify"] = int((time.perf_counter() - t) * 1000)
+            # A barcode number listed by the pages that matched this model fills a missing GTIN,
+            # but only when they all agree (a variant's page could list a different one).
+            if not best.gtin and len(page_gtins) == 1:
+                best.gtin = page_gtins.pop().lstrip("0").zfill(13)
+                best.evidence.append("gtin:from-shop-page")
 
         today = date.today().isoformat()
         for listing in links.purchase:
             listing.seen_at = today
 
-        confirmed = [s for s in links.purchase if s.verified in ("gtin", "model") and s.price]
+        offers = [s for s in links.purchase if s.page == "offer" and s.price]
+        confirmed = [s for s in offers if s.verified in ("gtin", "model")]
         if confirmed:
             price = summarize(confirmed, context.currency)
             price.verified_only = True
-            price.sources = [s for s in links.purchase if s.price]
+            price.sources = offers
         else:
-            price = summarize([s for s in links.purchase if s.price], context.currency)
+            price = summarize(offers, context.currency)
             if price.sources:
                 warnings.append("prices come from search snippets: no shop page confirmed this product")
         if not links.purchase:

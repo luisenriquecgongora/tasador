@@ -84,7 +84,7 @@ def test_unconfirmed_pages_fall_back_to_snippet_prices_with_a_warning(settings):
 
 def test_page_of_a_different_product_does_not_count(settings):
     pages = {"https://allegro.pl/oferta/1": product_page("Pioneer DJM-750MK2", 4999, mpn="DJM-750MK2")}
-    hits = [SearchHit("https://allegro.pl/oferta/1", "Pioneer DJM mixer", "4 999 zł", "new")]
+    hits = [SearchHit("https://allegro.pl/oferta/1", "Pioneer DJM-900NXS2 mixer", "4 999 zł", "new")]
     body = _post(make_client(settings, FakeVision(), FakeSearch(hits), FakeFetcher(pages)), [jpeg_bytes()],
                  {"currency": "PLN"}).json()
     assert body["links"]["purchase"][0]["verified"] == "unconfirmed"
@@ -179,3 +179,32 @@ def test_capabilities(settings):
     assert body["provider"]["vision"] == "fake-vision"
     assert body["provider"]["search"] is None
     assert body["url_images"] is False
+
+
+def test_real_world_search_results(settings):
+    """Shapes seen in a real run: search-results pages, tracking parameters, other models."""
+    hits = [
+        SearchHit("https://www.olx.pl/elektronika/q-djm-900nxs2/?srsltid=abc", "djm 900nxs2 - OLX", "4 400 zł", "used"),
+        SearchHit("https://muzyczny.pl/163089_Pioneer-DJM900NXS-2.html?srsltid=one", "Pioneer DJM900NXS 2", "", "new"),
+        SearchHit("https://muzyczny.pl/163089_Pioneer-DJM900NXS-2.html?srsltid=two", "Pioneer DJM900NXS 2", "", "new"),
+        SearchHit("https://veramusic.pl/print_product/12506", "Pioneer DJM-A9 - specyfikacja", "", "manual"),
+        SearchHit("https://www.musicaudio.pl/sklep-muzyczny/pioneer-djm-900nxs2-8169.html", "Pioneer DJM-900NXS2, cena, opinie", "", "new"),
+    ]
+    pages = {"https://muzyczny.pl/163089_Pioneer-DJM900NXS-2.html":
+             product_page("Pioneer DJM900NXS 2 DJ mikser", 9490, gtin="4573201240224")}
+    fetcher = FakeFetcher(pages)
+    body = _post(make_client(settings, FakeVision(), FakeSearch(hits), fetcher), [jpeg_bytes()], {"currency": "PLN"}).json()
+
+    purchase = {link["url"]: link for link in body["links"]["purchase"]}
+    olx = "https://www.olx.pl/elektronika/q-djm-900nxs2/"
+    assert purchase[olx]["page"] == "search" and purchase[olx]["price"] is None  # browse link, price ignored
+    assert olx not in fetcher.fetched  # no page check spent on a search page
+    assert list(purchase).count("https://muzyczny.pl/163089_Pioneer-DJM900NXS-2.html") == 1  # deduplicated
+    assert "https://www.musicaudio.pl/sklep-muzyczny/pioneer-djm-900nxs2-8169.html" in purchase  # "sklep" = shop
+    assert all("DJM-A9" not in link["title"] for link in body["links"]["reference"])  # another model, dropped
+
+    assert body["price"]["new"] == {"min": 9490.0, "max": 9490.0, "median": 9490.0, "count": 1}
+    assert body["price"]["used"] is None
+    assert body["best"]["gtin"] == "4573201240224"  # learned from the verified shop page
+    assert "gtin:from-shop-page" in body["best"]["evidence"]
+

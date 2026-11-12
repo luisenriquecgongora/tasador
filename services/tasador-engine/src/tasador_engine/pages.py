@@ -23,6 +23,7 @@ from urllib.robotparser import RobotFileParser
 import httpx
 
 from . import __version__
+from .net import tls_context
 from .pricing import parse_number
 from .product_key import normalize_code
 from .schemas import Condition, Link, Links, PriceSource, ProductKey, Verification
@@ -192,6 +193,7 @@ class PageFetcher:
 
         self._client = client or httpx.AsyncClient(
             timeout=timeout_seconds,
+            verify=tls_context(),
             follow_redirects=True,
             max_redirects=3,
             headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml"},
@@ -237,10 +239,16 @@ class PageFetcher:
             return None
 
 
-async def check_links(links: Links, key: ProductKey | None, model: str | None, fetcher: PageFetcher, limit: int) -> int:
-    """Fetch up to `limit` pages (shops first, then the maker's pages), mark each with how it
-    was verified, and take exact prices from the page's own offer data. Returns pages read."""
-    targets: list[PriceSource | Link] = [*links.purchase, *links.official[:2]][:limit]
+async def check_links(
+    links: Links, key: ProductKey | None, model: str | None, fetcher: PageFetcher, limit: int
+) -> tuple[int, set[str]]:
+    """Fetch up to `limit` pages (single offers first, then the maker's page), mark each with
+    how it was verified, and take exact prices from the page's own offer data. Returns how
+    many pages were read and the barcode numbers (GTIN-14) that verified pages list."""
+    offers = [p for p in links.purchase if p.page == "offer"]
+    # Shops first, but keep one check for the maker's page when there is one.
+    targets: list[PriceSource | Link] = [*offers[: max(limit - 1, 1)], *links.official[:1]][:limit]
+    found_gtins: set[str] = set()
     slots = asyncio.Semaphore(MAX_PARALLEL_FETCHES)
 
     async def one(item: PriceSource | Link) -> bool:
@@ -250,6 +258,8 @@ async def check_links(links: Links, key: ProductKey | None, model: str | None, f
             return False
         page = parse_product_data(html)
         item.verified = verify(page, key, model)
+        if item.verified in ("gtin", "model"):
+            found_gtins.update(page.gtins)
         if isinstance(item, PriceSource) and page.offers:
             offer = page.offers[0]
             item.price, item.currency = offer.price, (offer.currency or item.currency)
@@ -259,4 +269,4 @@ async def check_links(links: Links, key: ProductKey | None, model: str | None, f
         return True
 
     results = await asyncio.gather(*(one(item) for item in targets))
-    return sum(results)
+    return sum(results), found_gtins
