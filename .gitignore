@@ -32,3 +32,6 @@ src-tauri/target/
 .DS_Store
 Thumbs.db
 *.log
+
+# Per-machine Docker tweaks (DNS, ports)
+docker-compose.override.yml

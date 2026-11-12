@@ -5,6 +5,11 @@ server:
   # Replace before exposing this instance anywhere: `openssl rand -hex 32`
   secret_key: "change-me-before-exposing-this-instance"
   limiter: false
+outgoing:
+  # Seconds per search engine. SearXNG's default (3 s) drops engines on slow connections
+  # (Docker Desktop's network can be slow), which shows up as zero results.
+  request_timeout: 10.0
+  max_request_timeout: 20.0
 search:
   formats:
     - html
