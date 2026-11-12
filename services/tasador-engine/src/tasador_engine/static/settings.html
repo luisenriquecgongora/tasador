@@ -99,6 +99,12 @@
       <label class="mode"><input type="radio" name="smode" value="anthropic">Claude web search<small>Uses the Anthropic key. Paid.</small></label>
       <label class="mode"><input type="radio" name="smode" value="none">Off<small>No links, no prices.</small></label>
     </div>
+    <p class="hint" data-for-s="searxng">
+      <strong>What is local search?</strong> SearXNG is a free, open-source search engine that runs on this computer
+      inside Docker. It does not have its own index: it asks Google, Bing, Brave and DuckDuckGo for you and combines
+      their results. So it needs no account or API key, and nothing about you is sent except the search text
+      (for example "Pioneer DJM-900NXS2 cena"). Your photos never leave this computer.
+    </p>
     <p class="hint" data-for-s="searxng" id="searxng-hint"></p>
     <div class="fields" data-for-s="brave"><label class="f">Brave Search API key<input id="brave-key" type="password" autocomplete="off"></label></div>
     <div class="fields" data-for-s="anthropic"><label class="f">Anthropic API key (shared with recognition)<input id="anthropic-key-2" type="password" autocomplete="off"></label></div>
