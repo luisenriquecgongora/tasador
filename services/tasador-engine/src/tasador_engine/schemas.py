@@ -105,6 +105,9 @@ class PriceSource(BaseModel):
     currency: str | None = None
     condition: Condition = "unknown"
     availability: str | None = Field(default=None, description="From the page's product data, e.g. InStock, OutOfStock")
+    page: Literal["offer", "search"] = Field(
+        default="offer", description="offer: one listing; search: a shop's search results for this product (no price)"
+    )
     verified: Verification = "unchecked"
     seen_at: str | None = None
 

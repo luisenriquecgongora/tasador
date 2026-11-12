@@ -9,9 +9,10 @@ title or URL says manual, specifications, review or similar.
 from __future__ import annotations
 
 import re
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from .pricing import find_price, guess_condition
+from .product_key import normalize_code
 from .providers.search import SearchHit
 from .schemas import Link, LinkKind, Links, PriceSource
 
@@ -43,6 +44,53 @@ _KIND_WORDS: list[tuple[LinkKind, re.Pattern[str]]] = [
     ("specs", re.compile(r"\b(spec|specs|specification\w*|datasheet|dane techniczne|specyfikacj\w*|technische daten)\b", re.IGNORECASE)),
     ("review", re.compile(r"\b(review\w*|recenzj\w*|test|opinie|hands-on)\b", re.IGNORECASE)),
 ]
+
+
+# Query parameters that only track the click (search engines, ads, newsletters).
+_TRACKING_PARAMS = re.compile(r"^(utm_\w+|srsltid|gclid|gbraid|wbraid|fbclid|msclkid|yclid|mc_\w+|_ga|ref|ref_)$", re.I)
+_SHOP_PATH_WORDS = re.compile(r"(^|[/._-])(sklep|shop|store|tienda|boutique)([/._-]|$)", re.I)
+_SEARCH_PARAMS = {"q", "query", "search", "search_query", "keyword", "keywords", "k", "string"}
+
+
+def clean_url(url: str) -> str:
+    """Drop tracking parameters and the fragment, so the same page is listed once."""
+    parts = urlparse(url)
+    query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if not _TRACKING_PARAMS.match(k)]
+    return urlunparse(parts._replace(query=urlencode(query), fragment=""))
+
+
+def is_search_page(url: str) -> bool:
+    """A shop's or marketplace's search results, not a single offer: prices on it belong to
+    many different items, so they never count, but the link is useful to browse offers."""
+    parts = urlparse(url)
+    host, path = site_of(url), parts.path.lower()
+    query = {k.lower() for k, _ in parse_qsl(parts.query)}
+    if _matches(host, ("olx.",)) and "/q-" in path:
+        return True
+    if host.endswith("allegro.pl") and path.startswith(("/listing", "/kategoria")):
+        return True
+    if _matches(host, ("ebay.",)) and path.startswith(("/sch/", "/shop/")):
+        return True
+    if _matches(host, ("amazon.",)) and (path in ("/s", "/s/") or path.startswith("/s/")):
+        return True
+    if host.endswith("ceneo.pl") and (";szukaj" in path or path.startswith("/szukaj")):
+        return True
+    return bool(_SEARCH_PARAMS & query) and any(word in path for word in ("search", "szukaj", "suche", "buscar", "listing"))
+
+
+def mentions_model(text: str, model: str | None) -> bool:
+    """Does a search hit talk about this model? Its exact code, or its letter prefix plus all
+    its numbers ("DJM 900 Nexus 2" matches DJM-900NXS2; "DJM-A9" does not)."""
+    wanted = normalize_code(model)
+    if len(wanted) < 4:
+        return True  # nothing reliable to check against
+    haystack = normalize_code(text)
+    if wanted in haystack:
+        return True
+    numbers = re.findall(r"\d+", wanted)
+    prefix = re.match(r"[a-z]+", wanted)
+    words = re.findall(r"[a-z]+|\d+", text.lower())
+    return bool(numbers) and all(n in words for n in numbers) and (prefix is None or prefix.group(0) in haystack)
 
 
 def site_of(url: str) -> str:
@@ -81,7 +129,7 @@ def classify(hit: SearchHit, brand: str | None) -> Link | PriceSource | None:
     The goal of the query that found the hit is only a hint: a shop found by a "manual"
     query is still a shop, and a manual found by a "new" query is still a manual.
     """
-    url, title = hit.url, hit.title
+    url, title = clean_url(hit.url), hit.title
     host = site_of(url)
     if not host:
         return None
@@ -94,10 +142,13 @@ def classify(hit: SearchHit, brand: str | None) -> Link | PriceSource | None:
             condition = "used"
         elif condition == "unknown" and hit.goal == "new" and not _matches(host, MARKETPLACES):
             condition = "new"  # a shop found by a "buy new" query sells it new unless it says otherwise
+        if is_search_page(url):
+            return PriceSource(title=title, url=url, shop=host, condition=condition, page="search")
         return PriceSource(title=title, url=url, shop=host, price=price[0] if price else None,
                            currency=price[1] if price else None, condition=condition)
 
-    if _matches(host, SHOP_DOMAINS) or (price and _PURCHASE_WORDS.search(text)):
+    is_shop_path = bool(_SHOP_PATH_WORDS.search(urlparse(url).path))
+    if _matches(host, SHOP_DOMAINS) or is_shop_path or (price and _PURCHASE_WORDS.search(text)):
         return listing()
 
     kind: LinkKind | None = None
@@ -114,10 +165,17 @@ def classify(hit: SearchHit, brand: str | None) -> Link | PriceSource | None:
     return None  # unrelated: a forum post, a news item, a page that only ranked for the name
 
 
-def sort_hits(hits: list[SearchHit], brand: str | None) -> Links:
+def sort_hits(hits: list[SearchHit], brand: str | None, model: str | None = None) -> Links:
+    """Classify, drop hits about other products, and list each page once."""
     links = Links()
+    seen: set[str] = set()
     for hit in hits:
+        if not mentions_model(f"{hit.title} {hit.snippet} {hit.url}", model):
+            continue
         item = classify(hit, brand)
+        if item is None or item.url in seen:
+            continue
+        seen.add(item.url)
         if isinstance(item, PriceSource):
             links.purchase.append(item)
         elif isinstance(item, Link):

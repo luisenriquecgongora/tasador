@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from tasador_engine.links import classify, is_official, site_of, sort_hits
+from tasador_engine.links import classify, clean_url, is_official, is_search_page, mentions_model, site_of, sort_hits
 from tasador_engine.providers.search import SearchHit
 from tasador_engine.schemas import Link, PriceSource
 
@@ -52,3 +52,35 @@ def test_sort_hits_caps_each_group():
     hits += [_hit(f"https://www.pioneerdj.com/{i}", title="DJM") for i in range(5)]
     links = sort_hits(hits, "Pioneer DJ")
     assert len(links.purchase) == 15 and len(links.official) == 3 and links.reference == []
+
+
+def test_clean_url_drops_tracking_only():
+    assert clean_url("https://x.pl/p?id=7&srsltid=abc&utm_source=g#top") == "https://x.pl/p?id=7"
+    assert clean_url("https://x.pl/p") == "https://x.pl/p"
+
+
+@pytest.mark.parametrize("url, expected", [
+    ("https://www.olx.pl/elektronika/q-djm-900nxs2/", True),
+    ("https://allegro.pl/listing?string=pioneer%20djm", True),
+    ("https://www.ebay.com/shop/djm-900-nxs-2?_nkw=djm", True),
+    ("https://www.amazon.pl/s?k=djm+900", True),
+    ("https://shop.example.com/search?q=djm", True),
+    ("https://allegro.pl/oferta/pioneer-djm-900nxs2-123", False),
+    ("https://www.amazon.pl/Pioneer-DJ-DJM-900NXS2/dp/B01BCCYQVS", False),
+    ("https://www.olx.pl/d/oferta/pioneer-djm-CID99.html", False),
+])
+def test_is_search_page(url, expected):
+    assert is_search_page(url) is expected
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("Pioneer DJM-900NXS2 mixer", True),
+    ("pioneer djm 900 nexus 2 - OLX", True),
+    ("DJM900NXS2-W white edition", True),
+    ("Pioneer DJM-A9 - specyfikacja", False),
+    ("Pioneer DJM-750MK2", False),
+])
+def test_mentions_model(text, expected):
+    assert mentions_model(text, "DJM-900NXS2") is expected
+    assert mentions_model(text, None) is True
+
