@@ -25,6 +25,7 @@ node_modules/
 .turbo/
 src-tauri/target/
 **/src-tauri/target/
+**/src-tauri/gen/
 
 # Editors and OS
 .idea/

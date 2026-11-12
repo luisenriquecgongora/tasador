@@ -46,11 +46,15 @@ if errorlevel 1 (
 
 rem ---- 2. Settings ---------------------------------------------------------------------
 :configure
+rem Tasador-Desktop.bat calls this file only to install or repair the engine.
+if /i "%~1"=="--install-only" exit /b 0
 if exist "%ROOT%.env" (
     echo [Tasador] Reading settings from .env
     for /f "usebackq eol=# tokens=1,* delims==" %%A in ("%ROOT%.env") do if not "%%B"=="" set "%%A=%%B"
 )
 if not defined TASADOR_DEPLOYMENT set "TASADOR_DEPLOYMENT=local"
+rem The port is shared with the desktop app, which saves it as TASADOR_PORT in .env.
+if defined TASADOR_PORT set "PORT=%TASADOR_PORT%"
 
 rem ---- 3. Recognition ------------------------------------------------------------------
 if defined TASADOR_VISION_PROVIDER goto :vision_model
