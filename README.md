@@ -154,8 +154,8 @@ sequenceDiagram
 | 4 | **Check the answer** | A `type` outside your `allowed_types` is dropped. A serial number the text reader never saw is marked `serial:unconfirmed`. | Models sometimes invent details. Only what can be checked is trusted. |
 | 5 | **Pick the product key** | The strongest identifier wins: a barcode number (GTIN, checksum-validated), else brand + model number, else the descriptive name. | Price comparison sites match offers the same way: by identifier, not by picture. |
 | 6 | **Search the web, one query per goal** | Four searches in the caller's language: the maker's page, manual/specs, buy new, buy used. | One mixed query returns mostly shops; separate goals bring back official pages and manuals too. |
-| 7 | **Sort the results** | Each hit becomes an **official** link (domain carries the brand), a **reference** link (manual, specs, review, encyclopedia) or a **purchase** link (known shop or marketplace, or a page showing a price). Unrelated pages are dropped. | The client gets ready-made groups: "read about it" and "buy it". |
-| 8 | **Open the top pages and check them** | Up to 8 pages are fetched (shops first). Their schema.org `Product`/`Offer` data gives the exact price, currency, condition and stock, and the page's own barcode / model number. Each link is marked `verified: gtin`, `model`, `unconfirmed` or `unchecked`. | Snippets are often stale or about a different variant. Shops publish this data for Google Shopping, so reading it needs no AI. |
+| 7 | **Sort the results** | Each hit becomes an **official** link (domain carries the brand), a **reference** link (manual, specs, review, encyclopedia) or a **purchase** link (known shop or marketplace, a shop-like address, or a page showing a price). Hits that never mention the model are dropped ("DJM 900 Nexus 2" still counts for DJM-900NXS2, "DJM-A9" does not), tracking parameters are removed, and each page is listed once. A shop's **search-results page** (OLX `/q-…`, Allegro `/listing`, eBay `/sch/`, Amazon `/s`) stays as a "browse offers" link with `page: "search"`, but its prices are ignored: they belong to many different items. | The client gets ready-made groups: "read about it" and "buy it", without other models or duplicates. |
+| 8 | **Open the top pages and check them** | Up to 8 pages are fetched: single offers first, plus the maker's page. Their schema.org `Product`/`Offer` data gives the exact price, currency, condition and stock, and the page's own barcode / model number. Each link is marked `verified: gtin`, `model`, `unconfirmed` or `unchecked`. When the photo had no barcode, the barcode number that the confirmed pages agree on fills `best.gtin` (`evidence: gtin:from-shop-page`). | Snippets are often stale or about a different variant. Shops publish this data for Google Shopping, so reading it needs no AI. Some sites refuse automated visitors or forbid it in robots.txt; those links stay `unchecked`. |
 | 9 | **Build price ranges** | New and used ranges from verified pages only (`price.verified_only: true`). If none could be verified, snippet prices are used and a warning says so. Only your currency counts, never converted; outliers are dropped. | A number a person can trust, with every source one click away. |
 | 10 | **Find duplicates** | The result is compared with the `known_items` you sent. | Lets the client say "you already own 3 of these" instead of creating a duplicate. |
 | 11 | **Answer** | One JSON response, with `warnings` for any step that was skipped or failed. | A failed search still returns the identification. Only bad input gives an HTTP error. |
@@ -296,6 +296,16 @@ docker compose exec ollama ollama pull qwen2.5vl:7b
 # .env: TASADOR_VISION_BASE_URL=http://ollama:11434/v1  TASADOR_VISION_MODEL=qwen2.5vl:7b  TASADOR_SEARXNG_URL=http://searxng:8080
 ```
 
+**SearXNG returns no results?** Check `http://localhost:8888/search?q=test&format=json`: an empty `results` list with engines under `unresponsive_engines` means the container cannot reach the search engines. On some Windows machines Docker Desktop's DNS does not resolve names inside containers. Give SearXNG public DNS servers in a `docker-compose.override.yml` next to `docker-compose.yml` (it is git-ignored, so it stays on your machine):
+
+```yaml
+services:
+  searxng:
+    dns: [1.1.1.1, 8.8.8.8]
+```
+
+Then `docker compose --profile local up -d --force-recreate searxng`. The first search after a start can still be slow while the engines warm up.
+
 ### Try it
 
 The easiest way is the browser: open **http://localhost:8000/docs**, expand `POST /v1/identify`, click *Try it out*, add one or more photos and *Execute*. Or from a terminal:
@@ -371,9 +381,11 @@ Response (shortened: real responses have up to 3 official, 8 reference and 15 pu
     ],
     "purchase": [
       { "title": "Pioneer DJ DJM-900NXS2", "url": "https://allegro.pl/oferta/...", "shop": "allegro.pl",
-        "price": 10299, "currency": "PLN", "condition": "new", "availability": "InStock", "verified": "model", "seen_at": "2026-11-12" },
+        "price": 10299, "currency": "PLN", "condition": "new", "availability": "InStock", "page": "offer", "verified": "model", "seen_at": "2026-11-12" },
       { "title": "Pioneer DJM-900NXS2 używany", "url": "https://www.olx.pl/d/oferta/...", "shop": "olx.pl",
-        "price": 6200, "currency": "PLN", "condition": "used", "availability": null, "verified": "model", "seen_at": "2026-11-12" }
+        "price": 6200, "currency": "PLN", "condition": "used", "availability": null, "page": "offer", "verified": "model", "seen_at": "2026-11-12" },
+      { "title": "djm 900nxs2 - OLX", "url": "https://www.olx.pl/elektronika/sprzet-audio/q-djm-900nxs2/", "shop": "olx.pl",
+        "price": null, "currency": null, "condition": "unknown", "availability": null, "page": "search", "verified": "unchecked", "seen_at": "2026-11-12" }
     ]
   },
   "price": {
