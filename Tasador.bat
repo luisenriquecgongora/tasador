@@ -36,9 +36,9 @@ if exist "%ROOT%.env" (
 if not defined TASADOR_DEPLOYMENT set "TASADOR_DEPLOYMENT=local"
 
 rem No key and no model server configured: use Ollama if it is running on this computer.
-if not defined ANTHROPIC_API_KEY if not defined TASADOR_OPENAI_BASE_URL (
+if not defined ANTHROPIC_API_KEY if not defined TASADOR_VISION_BASE_URL if not defined TASADOR_VISION_PROVIDER (
     curl -s -o nul -m 2 http://localhost:11434/api/tags && (
-        set "TASADOR_OPENAI_BASE_URL=http://localhost:11434/v1"
+        set "TASADOR_VISION_PROVIDER=ollama"
         echo [Tasador] Found Ollama on this computer: using it for vision
     )
 )
