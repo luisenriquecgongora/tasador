@@ -1,0 +1,32 @@
+# Fully self-hosted, no API keys: engine + Ollama (vision) + SearXNG (price search).
+#   docker compose --profile local up        then: docker compose exec ollama ollama pull qwen2.5vl:7b
+# Hosted models instead: set ANTHROPIC_API_KEY in .env and run `docker compose up engine`.
+services:
+  engine:
+    build:
+      context: services/tasador-engine
+    ports: ["8000:8000"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TASADOR_DEPLOYMENT: self-hosted
+      TASADOR_VISION_PROVIDER: ${TASADOR_VISION_PROVIDER:-auto}
+      TASADOR_SEARCH_PROVIDER: ${TASADOR_SEARCH_PROVIDER:-auto}
+      TASADOR_OPENAI_BASE_URL: ${TASADOR_OPENAI_BASE_URL:-}
+      TASADOR_SEARXNG_URL: ${TASADOR_SEARXNG_URL:-}
+
+  ollama:
+    profiles: ["local"]
+    image: ollama/ollama:latest
+    volumes: ["ollama:/root/.ollama"]
+    ports: ["11434:11434"]
+
+  searxng:
+    profiles: ["local"]
+    image: searxng/searxng:latest
+    volumes: ["./deploy/searxng:/etc/searxng:rw"]
+    ports: ["8888:8080"]
+
+volumes:
+  ollama:

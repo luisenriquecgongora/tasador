@@ -1,0 +1,11 @@
+# Minimal SearXNG config for Tasador: the engine needs the JSON output format.
+# SearXNG is AGPL-3.0; it runs as its own container and is not part of Tasador's code.
+use_default_settings: true
+server:
+  # Replace before exposing this instance anywhere: `openssl rand -hex 32`
+  secret_key: "change-me-before-exposing-this-instance"
+  limiter: false
+search:
+  formats:
+    - html
+    - json

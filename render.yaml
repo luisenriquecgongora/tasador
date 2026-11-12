@@ -1,0 +1,31 @@
+# Render Blueprint for Tasador. Free tier (512 MB): barcode reading only, no OCR
+# (the OCR extra needs ~450 MB at its peak). Vision and price search use the Anthropic API.
+services:
+  - type: web
+    name: tasador-engine
+    runtime: python
+    region: frankfurt
+    plan: free
+    rootDir: services/tasador-engine
+    buildCommand: pip install ".[barcode,heic]"
+    startCommand: uvicorn tasador_engine.main:app_from_env --factory --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.2
+      - key: TASADOR_DEPLOYMENT
+        value: render
+      - key: TASADOR_API_TOKEN
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: TASADOR_VISION_PROVIDER
+        value: anthropic
+      - key: TASADOR_SEARCH_PROVIDER
+        value: anthropic
+      # Comma-separated host suffixes callers may send image URLs from (e.g. your R2 bucket host).
+      - key: TASADOR_ALLOWED_IMAGE_HOSTS
+        sync: false
+      - key: TASADOR_CORS_ORIGINS
+        sync: false
