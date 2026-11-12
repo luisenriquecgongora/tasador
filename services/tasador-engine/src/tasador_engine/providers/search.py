@@ -4,6 +4,7 @@ Providers only search. Sorting hits into official / reference / purchase links
 (links.py) and checking pages (pages.py) happen afterwards, the same for every provider.
 
 - SearxngSearch: a self-hosted SearXNG meta-search instance. No API key, no model.
+- BraveSearch: the Brave Search API (its own web index). Needs an API key, no model.
 - AnthropicWebSearch: Claude with the server-side web search tool. Hits whose URL did not
   appear in the actual search results are dropped, so every hit is a page that exists.
 """
@@ -18,7 +19,7 @@ import anthropic
 import httpx
 from pydantic import BaseModel, Field, ValidationError
 
-from ..config import Settings
+from ..config import SEARCH_PROVIDERS, Settings
 from ..product_key import Goal, GoalQuery
 from ..schemas import IdentifyContext
 from .common import ProviderError, extract_json_object
@@ -84,6 +85,41 @@ class SearxngSearch:
         return _dedupe([hit for answer in answers if answer for hit in answer])
 
 
+class BraveSearch:
+    """https://api.search.brave.com - key in TASADOR_SEARCH_API_KEY."""
+
+    URL = "https://api.search.brave.com/res/v1/web/search"
+
+    def __init__(self, settings: Settings, client: httpx.AsyncClient | None = None):
+        self.name = "brave"
+        headers = {"Accept": "application/json", "X-Subscription-Token": settings.search_api_key}
+        self._client = client or httpx.AsyncClient(timeout=20, headers=headers)
+        if client is not None:
+            self._client.headers.update(headers)
+
+    async def _one(self, query: GoalQuery, context: IdentifyContext) -> list[SearchHit] | None:
+        params: dict = {"q": query.text, "count": RESULTS_PER_QUERY, "search_lang": context.locale.split("-")[0]}
+        if context.country:
+            params["country"] = context.country.upper()
+        try:
+            response = await self._client.get(self.URL, params=params)
+            response.raise_for_status()
+            results = (response.json().get("web") or {}).get("results", [])
+        except (httpx.HTTPError, ValueError, AttributeError):
+            return None
+        return [
+            SearchHit(url=r["url"], title=r.get("title", "").strip(), snippet=(r.get("description") or "").strip(), goal=query.goal)
+            for r in results[:RESULTS_PER_QUERY]
+            if r.get("url", "").startswith(("http://", "https://")) and r.get("title")
+        ]
+
+    async def search(self, queries, context) -> list[SearchHit]:
+        answers = await asyncio.gather(*(self._one(q, context) for q in queries))
+        if queries and all(answer is None for answer in answers):
+            raise ProviderError("web search failed: Brave Search did not answer (check TASADOR_SEARCH_API_KEY)")
+        return _dedupe([hit for answer in answers if answer for hit in answer])
+
+
 class _Result(BaseModel):
     title: str
     url: str
@@ -115,8 +151,8 @@ def _claude_prompt(queries: list[GoalQuery], context: IdentifyContext) -> str:
 
 class AnthropicWebSearch:
     def __init__(self, settings: Settings, client: anthropic.AsyncAnthropic | None = None):
-        self.model = settings.anthropic_model
-        self.effort = settings.anthropic_effort
+        self.model = settings.search_model
+        self.effort = "medium"
         self.max_uses = settings.search_max_uses
         self.name = f"anthropic-web-search:{self.model}"
         self._client = client or anthropic.AsyncAnthropic(
@@ -180,6 +216,10 @@ def build_search(settings: Settings) -> SearchProvider | None:
         if not settings.searxng_url:
             raise ValueError("TASADOR_SEARCH_PROVIDER=searxng needs TASADOR_SEARXNG_URL")
         return SearxngSearch(settings)
+    if provider == "brave":
+        if not settings.search_api_key:
+            raise ValueError("TASADOR_SEARCH_PROVIDER=brave needs TASADOR_SEARCH_API_KEY")
+        return BraveSearch(settings)
     if provider == "none":
         return None
-    raise ValueError(f"unknown TASADOR_SEARCH_PROVIDER: {provider}")
+    raise ValueError(f"unknown TASADOR_SEARCH_PROVIDER: {provider} (choose one of: {', '.join(SEARCH_PROVIDERS)}, auto)")

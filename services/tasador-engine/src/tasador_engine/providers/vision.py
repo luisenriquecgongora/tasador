@@ -16,7 +16,7 @@ import anthropic
 import httpx
 from pydantic import BaseModel, Field, ValidationError
 
-from ..config import Settings
+from ..config import DEFAULT_VISION_MODELS, VISION_PRESETS, Settings
 from ..schemas import Barcode, IdentifyContext
 from .common import ProviderError, extract_json_object
 
@@ -133,12 +133,13 @@ def _parse(raw: str) -> VisionResult:
 
 class AnthropicVision:
     def __init__(self, settings: Settings, client: anthropic.AsyncAnthropic | None = None):
-        self.model = settings.anthropic_model
-        self.effort = settings.anthropic_effort
+        self.model = settings.vision_model or DEFAULT_VISION_MODELS["anthropic"]
+        self.effort = settings.vision_effort
         self.name = f"anthropic:{self.model}"
-        self.max_images = None
+        self.max_images = settings.vision_max_images or None
         self._client = client or anthropic.AsyncAnthropic(
-            api_key=settings.anthropic_api_key or None, timeout=settings.request_timeout_seconds
+            api_key=settings.vision_api_key or settings.anthropic_api_key or None,
+            timeout=settings.request_timeout_seconds,
         )
 
     async def identify(self, jpegs, context, ocr_text, barcodes) -> VisionResult:
@@ -174,13 +175,17 @@ class AnthropicVision:
 
 
 class OpenAICompatibleVision:
+    """Any `/chat/completions` server that accepts images: OpenAI, Gemini, OpenRouter, Groq,
+    Mistral, Together, xAI, Ollama, LM Studio, vLLM... (see VISION_PRESETS)."""
+
     def __init__(self, settings: Settings, client: httpx.AsyncClient | None = None):
-        self.base_url = settings.openai_base_url
-        self.model = settings.openai_model
-        self.reasoning_effort = settings.openai_reasoning_effort
-        self.max_images = settings.openai_max_images or None
-        self.name = f"openai-compatible:{self.model}"
-        headers = {"Authorization": f"Bearer {settings.openai_api_key}"} if settings.openai_api_key else {}
+        self.base_url = settings.vision_base()
+        self.model = settings.resolved_vision_model()
+        self.reasoning_effort = settings.resolved_reasoning_effort()
+        self.max_images = settings.resolved_vision_max_images()
+        label = settings.vision_provider if settings.vision_provider in VISION_PRESETS else "openai-compatible"
+        self.name = f"{label}:{self.model}"
+        headers = {"Authorization": f"Bearer {settings.vision_api_key}"} if settings.vision_api_key else {}
         self._client = client or httpx.AsyncClient(timeout=settings.request_timeout_seconds, headers=headers)
 
     async def identify(self, jpegs, context, ocr_text, barcodes) -> VisionResult:
@@ -223,9 +228,12 @@ def build_vision(settings: Settings) -> VisionProvider | None:
     if provider == "anthropic":
         return AnthropicVision(settings)
     if provider == "openai-compatible":
-        if not settings.openai_base_url:
-            raise ValueError("TASADOR_VISION_PROVIDER=openai-compatible needs TASADOR_OPENAI_BASE_URL")
+        if not settings.vision_base():
+            raise ValueError("TASADOR_VISION_PROVIDER=openai-compatible needs TASADOR_VISION_BASE_URL")
+        if not settings.resolved_vision_model():
+            raise ValueError(f"set TASADOR_VISION_MODEL to the vision model to use with {settings.vision_provider}")
         return OpenAICompatibleVision(settings)
     if provider == "none":
         return None
-    raise ValueError(f"unknown TASADOR_VISION_PROVIDER: {provider}")
+    choices = ", ".join(["anthropic", "openai-compatible", *VISION_PRESETS, "none", "auto"])
+    raise ValueError(f"unknown TASADOR_VISION_PROVIDER: {provider} (choose one of: {choices})")

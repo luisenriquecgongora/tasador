@@ -12,7 +12,7 @@ import pytest
 
 from tasador_engine.product_key import GoalQuery
 from tasador_engine.providers.common import ProviderError, extract_json_object
-from tasador_engine.providers.search import AnthropicWebSearch, SearxngSearch, build_search
+from tasador_engine.providers.search import AnthropicWebSearch, BraveSearch, SearxngSearch, build_search
 from tasador_engine.providers.vision import AnthropicVision, OpenAICompatibleVision, build_vision, output_schema
 from tasador_engine.schemas import Barcode, IdentifyContext
 from conftest import jpeg_bytes
@@ -112,7 +112,7 @@ async def test_openai_compatible_vision(settings):
         reply = "```json\n" + json.dumps(VISION_JSON) + "\n```"
         return httpx.Response(200, json={"choices": [{"message": {"content": reply}}]})
 
-    local = replace(settings, openai_base_url="http://localhost:11434/v1")
+    local = replace(settings, vision_provider="ollama")
     vision = OpenAICompatibleVision(local, client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
     result = await vision.identify([jpeg_bytes()], IdentifyContext(), [], [])
 
@@ -127,7 +127,7 @@ async def test_openai_compatible_vision_unreachable(settings):
     def handler(request):
         raise httpx.ConnectError("refused")
 
-    local = replace(settings, openai_base_url="http://localhost:11434/v1")
+    local = replace(settings, vision_provider="ollama")
     vision = OpenAICompatibleVision(local, client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
     with pytest.raises(ProviderError, match="cannot reach"):
         await vision.identify([jpeg_bytes()], IdentifyContext(), [], [])
@@ -168,13 +168,58 @@ def test_auto_provider_resolution(settings):
     auto = replace(settings, vision_provider="auto", search_provider="auto")
     assert build_vision(auto) is None and build_search(auto) is None
     with_key = replace(auto, anthropic_api_key="k")
-    assert build_vision(with_key).name.startswith("anthropic:")
-    assert build_search(with_key).name.startswith("anthropic-web-search")
-    local = replace(auto, openai_base_url="http://localhost:11434/v1", searxng_url="http://s:8080")
-    assert build_vision(local).name.startswith("openai-compatible")
+    assert build_vision(with_key).name == "anthropic:claude-opus-5-5"
+    assert build_search(with_key).name == "anthropic-web-search:claude-opus-5-5"
+    local = replace(auto, vision_base_url="http://localhost:11434/v1", searxng_url="http://s:8080")
+    assert build_vision(local).name == "openai-compatible:qwen2.5vl:7b"
     assert build_search(local).name == "searxng"
+    assert build_search(replace(auto, search_api_key="brave-key")).name == "brave"
     with pytest.raises(ValueError):
         build_vision(replace(settings, vision_provider="openai-compatible"))
+    with pytest.raises(ValueError, match="choose one of"):
+        build_vision(replace(settings, vision_provider="nope"))
+
+
+def test_cloud_presets_need_a_model_and_get_cloud_defaults(settings):
+    with pytest.raises(ValueError, match="TASADOR_VISION_MODEL"):
+        build_vision(replace(settings, vision_provider="gemini", vision_api_key="k"))
+    gemini = build_vision(replace(settings, vision_provider="gemini", vision_api_key="k", vision_model="some-vision-model"))
+    assert gemini.name == "gemini:some-vision-model"
+    assert gemini.base_url == "https://generativelanguage.googleapis.com/v1beta/openai"
+    assert gemini.reasoning_effort == "" and gemini.max_images is None  # cloud: field not sent, no photo cap
+
+
+def test_local_servers_get_thinking_off_and_a_photo_cap(settings):
+    ollama = build_vision(replace(settings, vision_provider="ollama", vision_model="qwen3.5:2b"))
+    assert (ollama.base_url, ollama.reasoning_effort, ollama.max_images) == ("http://localhost:11434/v1", "none", 4)
+    custom = build_vision(replace(settings, vision_provider="ollama", vision_reasoning_effort="off", vision_max_images=2))
+    assert (custom.reasoning_effort, custom.max_images) == ("", 2)
+
+
+def test_old_variable_names_still_work(monkeypatch):
+    from tasador_engine.config import Settings
+    monkeypatch.setenv("TASADOR_OPENAI_BASE_URL", "http://localhost:1234/v1/")
+    monkeypatch.setenv("TASADOR_OPENAI_MODEL", "qwen3.5:2b")
+    loaded = Settings.from_env()
+    assert (loaded.vision_base(), loaded.resolved_vision_model(), loaded.resolved_vision_provider()) == (
+        "http://localhost:1234/v1", "qwen3.5:2b", "openai-compatible")
+
+
+async def test_brave_search(settings):
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"web": {"results": [
+            {"url": "https://allegro.pl/1", "title": "Pioneer DJM-900NXS2", "description": "10 499 zł"},
+        ]}})
+
+    brave = BraveSearch(replace(settings, search_api_key="secret"),
+                        client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    hits = await brave.search([GoalQuery("new", "Pioneer DJM-900NXS2 cena")], IdentifyContext(locale="pl-PL", country="pl"))
+    assert [(h.url, h.snippet, h.goal) for h in hits] == [("https://allegro.pl/1", "10 499 zł", "new")]
+    assert seen[0].headers["X-Subscription-Token"] == "secret"
+    assert (seen[0].url.params["country"], seen[0].url.params["search_lang"]) == ("PL", "pl")
 
 
 def test_schema_and_json_helpers():
