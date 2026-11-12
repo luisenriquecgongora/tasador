@@ -22,6 +22,7 @@ from starlette.datastructures import UploadFile
 from . import __version__
 from .config import Settings
 from .images import HEIC_SUPPORTED, ImageError, PreparedImage, fetch, prepare
+from .net import tls_context
 from .pages import PageFetcher
 from .pipeline import Pipeline
 from .providers.search import SearchProvider, build_search
@@ -75,7 +76,7 @@ def create_app(
         build_search(settings) if search is _FROM_SETTINGS else search,
         fetcher,
     )
-    image_client = http_client or httpx.AsyncClient(timeout=30)
+    image_client = http_client or httpx.AsyncClient(timeout=30, verify=tls_context())
 
     app = FastAPI(title="Tasador engine", version=__version__)
     if settings.cors_origins:

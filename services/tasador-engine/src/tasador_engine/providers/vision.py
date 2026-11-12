@@ -17,6 +17,7 @@ import httpx
 from pydantic import BaseModel, Field, ValidationError
 
 from ..config import DEFAULT_VISION_MODELS, VISION_PRESETS, Settings
+from ..net import anthropic_client, tls_context
 from ..schemas import Barcode, IdentifyContext
 from .common import ProviderError, extract_json_object
 
@@ -137,9 +138,8 @@ class AnthropicVision:
         self.effort = settings.vision_effort
         self.name = f"anthropic:{self.model}"
         self.max_images = settings.vision_max_images or None
-        self._client = client or anthropic.AsyncAnthropic(
-            api_key=settings.vision_api_key or settings.anthropic_api_key or None,
-            timeout=settings.request_timeout_seconds,
+        self._client = client or anthropic_client(
+            settings.vision_api_key or settings.anthropic_api_key or None, settings.request_timeout_seconds
         )
 
     async def identify(self, jpegs, context, ocr_text, barcodes) -> VisionResult:
@@ -186,7 +186,9 @@ class OpenAICompatibleVision:
         label = settings.vision_provider if settings.vision_provider in VISION_PRESETS else "openai-compatible"
         self.name = f"{label}:{self.model}"
         headers = {"Authorization": f"Bearer {settings.vision_api_key}"} if settings.vision_api_key else {}
-        self._client = client or httpx.AsyncClient(timeout=settings.request_timeout_seconds, headers=headers)
+        self._client = client or httpx.AsyncClient(
+            timeout=settings.request_timeout_seconds, headers=headers, verify=tls_context()
+        )
 
     async def identify(self, jpegs, context, ocr_text, barcodes) -> VisionResult:
         schema = json.dumps(output_schema(context.allowed_types))

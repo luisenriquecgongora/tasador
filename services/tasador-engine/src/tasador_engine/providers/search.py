@@ -20,6 +20,7 @@ import httpx
 from pydantic import BaseModel, Field, ValidationError
 
 from ..config import SEARCH_PROVIDERS, Settings
+from ..net import anthropic_client, tls_context
 from ..product_key import Goal, GoalQuery
 from ..schemas import IdentifyContext
 from .common import ProviderError, extract_json_object
@@ -61,7 +62,7 @@ class SearxngSearch:
     def __init__(self, settings: Settings, client: httpx.AsyncClient | None = None):
         self.base_url = settings.searxng_url
         self.name = "searxng"
-        self._client = client or httpx.AsyncClient(timeout=20)
+        self._client = client or httpx.AsyncClient(timeout=30, verify=tls_context())
 
     async def _one(self, query: GoalQuery, context: IdentifyContext) -> list[SearchHit] | None:
         params = {"q": query.text, "format": "json", "language": context.locale}
@@ -93,7 +94,7 @@ class BraveSearch:
     def __init__(self, settings: Settings, client: httpx.AsyncClient | None = None):
         self.name = "brave"
         headers = {"Accept": "application/json", "X-Subscription-Token": settings.search_api_key}
-        self._client = client or httpx.AsyncClient(timeout=20, headers=headers)
+        self._client = client or httpx.AsyncClient(timeout=20, headers=headers, verify=tls_context())
         if client is not None:
             self._client.headers.update(headers)
 
@@ -155,9 +156,7 @@ class AnthropicWebSearch:
         self.effort = "medium"
         self.max_uses = settings.search_max_uses
         self.name = f"anthropic-web-search:{self.model}"
-        self._client = client or anthropic.AsyncAnthropic(
-            api_key=settings.anthropic_api_key or None, timeout=settings.request_timeout_seconds
-        )
+        self._client = client or anthropic_client(settings.anthropic_api_key or None, settings.request_timeout_seconds)
 
     async def search(self, queries, context) -> list[SearchHit]:
         tool: dict = {"type": "web_search_20260209", "name": "web_search", "max_uses": self.max_uses}
