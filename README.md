@@ -271,9 +271,50 @@ Double-click **[`Tasador.bat`](Tasador.bat)**. It sets everything up by itself:
 | 2. Settings | Reads a `.env` next to it, if you made one from [`.env.example`](.env.example). Anything set there wins over the automatic choices below |
 | 3. Recognition | If [Ollama](https://ollama.com) is running, uses it and picks an installed model that can read images (`qwen2.5vl`, `qwen3.5`, `gemma3`, `llava`...). If none is installed it tells you what to pull |
 | 4. Links and prices | If Docker Desktop is running, starts SearXNG in Docker (it keeps running after you close the window: `docker compose stop searxng` stops it) |
-| 5. Start | Starts the engine on `http://localhost:8000`, listening on this computer only, and opens the test page `http://localhost:8000/docs` |
+| 5. Start | Starts the engine on `http://localhost:8000`, listening on this computer only, and opens the **settings page** `http://localhost:8000/` |
 
 Close the window to stop the engine. Missing Ollama or Docker is not an error: that part is simply off, and the window says so.
+
+### The settings page
+
+`Tasador.bat` opens **http://localhost:8000/**, a small page to change everything without editing files:
+
+```mermaid
+flowchart LR
+    status["Status<br/>what is running:<br/>Ollama, models, SearXNG"]
+    vision["1. Recognition<br/>Local (Ollama, pick a model) ·<br/>Claude · other cloud AI · off"]
+    search["2. Links and prices<br/>Local SearXNG · Brave ·<br/>Claude · off"]
+    save["Save and apply<br/>written to .env,<br/>used immediately"]
+    try["Try it<br/>upload photos,<br/>see the result"]
+    status --> vision --> search --> save --> try
+
+    classDef input fill:#ede9fe,stroke:#7c3aed,color:#3b0764
+    classDef ours fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef output fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class status,vision,search input
+    class save ours
+    class try output
+```
+
+- **Models:** the Ollama dropdown lists only installed models that can read images, best first. If there is none, the page says which one to pull.
+- **Keys:** a saved key is never shown again, only "saved ✓". Leave the field empty to keep it.
+- **Saving:** settings that cannot work (for example a cloud provider without a model name) are refused before anything is saved.
+- **Try it:** shows the identification, prices, official pages, manuals and shops as readable cards, with the raw JSON underneath.
+
+Because the page can change where photos are sent, it is off unless the launcher turns it on (`TASADOR_SETTINGS_UI=1`). It answers only this computer: the connection must come from `127.0.0.1` and the `Host` header must be `localhost`. That `Host` check stops "DNS rebinding", where a website points its own domain at your computer. Saving also needs a random key that only the page knows. Never enable it on a server.
+
+### Typical setups
+
+| Setup | What to set (in the settings page or `.env`) | Good for |
+| :--- | :--- | :--- |
+| **Fully local, free** | nothing: just have Ollama and Docker Desktop running | privacy, no costs |
+| **Local, no Docker** | search: Brave + its API key | computers without Docker |
+| **Best quality** | recognition and search: Claude + `ANTHROPIC_API_KEY` | items without a readable label |
+| **Mixed** | recognition: Gemini (or another cloud AI) + key + model; search: local SearXNG | a cheaper cloud model with free search |
+| **Server for an app** (e.g. Render) | `ANTHROPIC_API_KEY`, `TASADOR_API_TOKEN`, `TASADOR_ALLOWED_IMAGE_HOSTS` | everyone uses it through one app |
+
+The language, currency and country are not settings: the calling app sends them with each request (`locale`, `currency`, `country`).
+
 
 ### Any OS: from a terminal
 
@@ -468,7 +509,7 @@ Liveness, no auth.
 | :--- | :--- |
 | `services/tasador-engine` | The FastAPI engine (`src/tasador_engine`) and its tests |
 | `docs/ARCHITECTURE.md` | Colored map of the stages and where the engine runs. Start here |
-| `Tasador.bat` | Windows launcher: installs on first run, starts the engine, opens the test page |
+| `Tasador.bat` | Windows launcher: installs or repairs, picks Ollama model and SearXNG, starts the engine, opens the settings page |
 | `docker-compose.yml`, `deploy/searxng` | Fully local stack: engine + Ollama + SearXNG |
 | `render.yaml` | Render Blueprint |
 | `scripts/verify.py` | Every check CI runs, in one command |

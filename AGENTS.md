@@ -55,6 +55,8 @@ All commits must follow:
 | `.../product_key.py` | GTIN checksum, product key (GTIN > brand + model > name), one search query per goal and language |
 | `.../links.py` | Sorts hits into official / reference / purchase; shop and marketplace domain lists |
 | `.../net.py` | Outbound HTTPS settings: every client uses the OS trust store (`truststore`). New HTTP clients must use `tls_context()` / `anthropic_client()` |
+| `.../settings_ui.py`, `.../static/settings.html` | Local settings page (`/`, `/ui/state`, `/ui/settings`): only with `TASADOR_SETTINGS_UI`, loopback + localhost Host + per-start key; swaps `app.state.pipeline` live |
+| `.../ollama_models.py` | Lists installed Ollama models that read images; used by the launcher and the settings page |
 | `.../pages.py` | Opens result pages (robots.txt, private-address guard) and reads schema.org Product/Offer data to verify and price them |
 | `.../pricing.py`, `.../matching.py` | Price parsing and ranges; similarity to the caller's `known_items` |
 | `docs/ARCHITECTURE.md` | Colored map of the stages and deployments. Start here |

@@ -137,4 +137,5 @@ flowchart LR
 - Image URLs are off until `TASADOR_ALLOWED_IMAGE_HOSTS` lists host suffixes. Only https, no redirects (a redirect could point inside your network) and a size cap.
 - Photos are re-encoded before anything else sees them, which drops EXIF metadata such as GPS position.
 - Opening result pages (`pages.py`): at most `TASADOR_VERIFY_PAGES` (8) per request, 4 at a time, robots.txt respected, a clear `TasadorBot` user agent, 3 MB cap, HTML only, and private / local addresses refused on every redirect hop.
+- The local settings page (`settings_ui.py`) is off unless `TASADOR_SETTINGS_UI` is set. It answers only loopback connections with a `localhost` Host header (against DNS rebinding), needs a per-start random key to save, accepts only a fixed list of settings with validated values, refuses settings that cannot work before saving, and never sends saved keys back.
 - Nothing is stored. In local mode the photos never leave the machine; only text search queries do.
