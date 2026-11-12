@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hmac
 import json
+import os
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -21,6 +22,7 @@ from pydantic import ValidationError
 from starlette.datastructures import UploadFile
 
 from . import __version__
+from .autodetect import autodetect_local, load_env_file
 from .config import Settings
 from .images import HEIC_SUPPORTED, ImageError, PreparedImage, fetch, prepare
 from .net import tls_context
@@ -176,5 +178,13 @@ async def _from_json(
 
 
 def app_from_env() -> FastAPI:
-    """Entry point for uvicorn: `uvicorn tasador_engine.main:app_from_env --factory`."""
+    """Entry point for uvicorn: `uvicorn tasador_engine.main:app_from_env --factory`.
+
+    Reads TASADOR_ENV_FILE first (the file the settings page saves to). With
+    TASADOR_AUTODETECT on (desktop app, Tasador.bat), unset providers are filled from
+    what runs on this computer: an Ollama vision model and a local SearXNG."""
+    load_env_file(os.environ.get("TASADOR_ENV_FILE"))
+    if os.environ.get("TASADOR_AUTODETECT", "").lower() in ("1", "true", "yes"):
+        for choice in autodetect_local():
+            print(f"[tasador] using {choice}", flush=True)
     return create_app()

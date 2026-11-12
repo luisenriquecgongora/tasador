@@ -22,7 +22,6 @@ import hmac
 import os
 import re
 import secrets
-import urllib.request
 from dataclasses import replace
 from importlib import resources
 from pathlib import Path
@@ -31,6 +30,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
+from .autodetect import searxng_reachable as _reachable
 from .config import SEARCH_PROVIDERS, VISION_PRESETS, Settings
 from .ollama_models import vision_models
 from .pipeline import Pipeline
@@ -107,14 +107,6 @@ def write_env_file(path: Path, changes: dict[str, str]) -> None:
             lines.append("")
         lines.extend(f"{key}={value}" for key, value in pending.items())
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def _reachable(url: str) -> bool:
-    try:
-        with urllib.request.urlopen(f"{url.rstrip('/')}/healthz", timeout=2) as response:
-            return response.status == 200
-    except OSError:
-        return False
 
 
 def _state(app: FastAPI, settings: Settings) -> dict:
