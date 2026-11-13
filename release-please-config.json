@@ -8,6 +8,7 @@
   "packages": {
     ".": {
       "changelog-path": "CHANGELOG.md",
+      "initial-version": "0.1.0",
       "extra-files": [
         { "type": "json", "path": "apps/desktop/src-tauri/tauri.conf.json", "jsonpath": "$.version" },
         { "type": "toml", "path": "apps/desktop/src-tauri/Cargo.toml", "jsonpath": "$.package.version" },
