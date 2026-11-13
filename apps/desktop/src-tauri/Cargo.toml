@@ -1,6 +1,6 @@
 [package]
 name = "tasador-desktop"
-version = "0.1.0"
+version = "0.2.0"
 description = "Tasador desktop app: a small settings window around the local engine"
 authors = ["Luis Enrique"]
 license = "LicenseRef-PolyForm-Shield-1.0.0"

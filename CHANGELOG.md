@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.0](https://github.com/luisenriquecgongora/tasador/compare/v0.1.0...v0.2.0) (2026-11-13)
+
+
+### Features
+
+* **deploy:** build the installer on macOS ([e914715](https://github.com/luisenriquecgongora/tasador/commit/e914715f3a746e4ebfc35ede927407784dd9fb2b))
+* **desktop:** add the macOS app icon ([db97a79](https://github.com/luisenriquecgongora/tasador/commit/db97a792d2e39fa4270d354f1bb225cdb8899454))
+
+
+### Bug Fixes
+
+* **desktop:** find docker when opened from Finder ([23fc4dc](https://github.com/luisenriquecgongora/tasador/commit/23fc4dcb60d2074d66c86353555f06a24ee7f255))
+
 ## 0.1.0 (2026-11-13)
 
 
