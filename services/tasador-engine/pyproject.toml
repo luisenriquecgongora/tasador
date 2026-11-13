@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tasador-engine"
-version = "0.1.0"
+version = "0.2.0"
 description = "Photos of a physical item in, JSON out: what it is (name, brand, model, type, serial) and what it costs, with sources"
 readme = "README.md"
 requires-python = ">=3.11"
