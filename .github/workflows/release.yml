@@ -1,6 +1,6 @@
 name: Build & Publish Release (GitHub + Cloudflare R2)
 
-# Every release goes to both places: the installer is attached to the GitHub Release
+# Every release goes to both places: the installers (Windows and macOS) are attached to the GitHub Release
 # and uploaded to Cloudflare R2 (tasador/vX.Y.Z/ and tasador/latest/, which the
 # Luis Enrique Builds site links to).
 on:
@@ -22,9 +22,21 @@ permissions:
   contents: write  # needed to create the GitHub Release
 
 jobs:
-  build-and-release:
-    name: Build Windows installer, publish to GitHub and R2
-    runs-on: windows-latest
+  build:
+    # PyInstaller only builds for the system it runs on, so each installer is built on its own system
+    name: Build ${{ matrix.platform }} installer
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows-x64
+          - os: macos-latest  # Apple Silicon
+            platform: macos-arm64
+    defaults:
+      run:
+        shell: pwsh
 
     steps:
       - name: Check out repository
@@ -62,9 +74,6 @@ jobs:
             exit 1
           }
 
-      - name: Test release retention cap
-        run: python -m unittest scripts/test_prune_r2_releases.py
-
       - name: Set up Node.js (runs the Tauri bundler)
         uses: actions/setup-node@v4
         with:
@@ -79,11 +88,49 @@ jobs:
           workspaces: apps/desktop/src-tauri
 
       - name: Build the installer (engine bundle + smoke test + Tauri app)
-        env:
-          R2_CUSTOM_DOMAIN: ${{ secrets.R2_CUSTOM_DOMAIN || 'https://pub-fb9de4da4f48439ebb34b3795d05ab11.r2.dev' }}
         run: python scripts/build_installer.py --version ${{ env.VERSION }}
 
-      - name: Publish to Cloudflare R2 (keeps the newest 3 releases)
+      - name: Keep the installer for the publish job
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.platform }}
+          path: dist/Tasador-v*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish to GitHub and R2
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install publish tools
+        run: pip install boto3 packaging
+
+      - name: Determine version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then ver="${{ github.event.inputs.version }}"; else ver="${{ github.ref_name }}"; fi
+          echo "VERSION=${ver#v}" >> "$GITHUB_ENV"
+
+      - name: Test the release scripts
+        run: python -m unittest scripts/test_prune_r2_releases.py scripts/test_publish_release_to_r2.py
+
+      - name: Collect the installers
+        uses: actions/download-artifact@v4
+        with:
+          pattern: installer-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish to Cloudflare R2 (writes version.json, keeps the newest 3 releases)
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -98,6 +145,7 @@ jobs:
         with:
           files: |
             dist/Tasador-v${{ env.VERSION }}-windows-x64-setup.exe
+            dist/Tasador-v${{ env.VERSION }}-macos-arm64.dmg
             dist/version.json
           generate_release_notes: true
           draft: false

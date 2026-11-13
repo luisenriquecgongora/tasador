@@ -18,7 +18,7 @@ jobs:
           cache-dependency-path: services/tasador-engine/pyproject.toml
       - run: pip install -e "./services/tasador-engine[ocr,barcode,heic,dev]" boto3
       - run: python scripts/verify.py --only python
-      - run: python -m unittest scripts/test_prune_r2_releases.py
+      - run: python -m unittest scripts/test_prune_r2_releases.py scripts/test_publish_release_to_r2.py
 
   desktop:
     name: Desktop app (cargo test)
