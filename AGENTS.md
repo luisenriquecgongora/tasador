@@ -73,6 +73,8 @@ Dependency direction: `schemas`/`config` <- `images`, `local_readers`, `pricing`
 - Fully local stack: `docker compose --profile local up`
 - Desktop app: `Tasador-Desktop.bat`, or `cd apps/desktop/src-tauri && cargo build --release` (the window page needs no Node build)
 - Settings: every environment variable is listed in `.env.example` and read in `config.py`.
+- Release: every push to `master` updates the "chore: release vX.Y.Z" PR (versions in `tauri.conf.json`, `Cargo.toml`, `pyproject.toml`, `tasador_engine/__init__.py` + `CHANGELOG.md`). Merging it tags the release and runs `release.yml`, which publishes to BOTH the GitHub Release and Cloudflare R2. Do not bump versions or tag by hand.
+- Installer locally: `python scripts/build_installer.py` (engine bundle with smoke test, then Tauri NSIS); `--skip-engine` reuses `build/engine`.
 
 ### 8. Gotchas
 - The Anthropic SDK 2.x runs on `httpx2`, not `httpx`: mock its transport with `httpx2.MockTransport`. The other providers use plain `httpx`.

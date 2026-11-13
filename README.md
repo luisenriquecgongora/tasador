@@ -558,6 +558,41 @@ Liveness, no auth.
 
 ---
 
+## 📦 Releases and downloads
+
+Each release is published to **both** places:
+
+| Where | What | Link |
+| :--- | :--- | :--- |
+| **Cloudflare R2** | the Windows installer, always the newest | `https://pub-fb9de4da4f48439ebb34b3795d05ab11.r2.dev/tasador/latest/Tasador-windows-x64-setup.exe` |
+| **GitHub Releases** | the same installer plus `version.json`, for every version | [github.com/luisenriquecgongora/tasador/releases](https://github.com/luisenriquecgongora/tasador/releases) |
+
+The installer (`Tasador-vX.Y.Z-windows-x64-setup.exe`) needs no Python and no administrator rights. It contains the desktop app and the engine with its own Python. Ollama (local recognition) and Docker Desktop (local search) are separate, optional installs: the app works without them and says what is missing.
+
+```mermaid
+flowchart LR
+    commits["feat / fix commits<br/>on master"]
+    pr["release PR<br/>'chore: release vX.Y.Z'<br/>(version + CHANGELOG)"]
+    build["GitHub Windows machine<br/>engine bundle + smoke test<br/>→ Tauri → NSIS installer"]
+    r2["Cloudflare R2<br/>tasador/vX.Y.Z/ + tasador/latest/<br/>(newest 3 kept)"]
+    gh["GitHub Release vX.Y.Z<br/>installer + version.json"]
+
+    commits --> pr -- "merge" --> build
+    build --> r2
+    build --> gh
+
+    classDef input fill:#ede9fe,stroke:#7c3aed,color:#3b0764
+    classDef ours fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef output fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class commits,pr input
+    class build ours
+    class r2,gh output
+```
+
+How a release happens: every push to `master` updates a "chore: release vX.Y.Z" pull request (version numbers and `CHANGELOG.md` come from the commit types: `feat` = minor, `fix` = patch while below 1.0). Merging it tags the version and starts `.github/workflows/release.yml`, which builds the installer on GitHub's Windows machine and publishes it to R2 and the GitHub Release. The repository needs the `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` secrets (and optionally `R2_BUCKET_NAME`, `R2_CUSTOM_DOMAIN`), and Actions must be allowed to create pull requests (Settings → Actions → General).
+
+To build the installer on your own computer: `python scripts/build_installer.py` (needs Rust, Node.js and the engine's virtualenv; the Tauri step needs several GB of free memory).
+
 ## Repository map
 
 | Path | What lives there |
@@ -569,6 +604,8 @@ Liveness, no auth.
 | `docker-compose.yml`, `deploy/searxng` | Fully local stack: engine + Ollama + SearXNG |
 | `render.yaml` | Render Blueprint |
 | `scripts/verify.py` | Every check CI runs, in one command |
+| `scripts/build_engine_bundle.py`, `scripts/build_installer.py`, `scripts/publish_release_to_r2.py` | Engine with its own Python (PyInstaller, smoke-tested) → NSIS installer → R2 + GitHub Release |
+| `.github/workflows/` | `ci.yml` (engine + desktop tests), `release-please.yml` (release PR), `release.yml` (build and publish) |
 | `FUTURE_PLANS.md` | What comes next: desktop app, client SDKs, marketplace price APIs |
 
 ---
