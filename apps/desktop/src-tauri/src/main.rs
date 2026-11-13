@@ -5,15 +5,19 @@
 //!
 //! - Starts the Python engine hidden (no console window) on the chosen port, with the
 //!   settings page switched on, and stops it when the app quits.
-//! - Keeps the port in the repository's `.env` (`TASADOR_PORT`), shared with Tasador.bat.
-//!   Changing it restarts the engine on the new port; a busy port is refused with a
-//!   suggestion of the next free one.
+//! - Keeps the port in `.env` (`TASADOR_PORT`). Changing it restarts the engine on the new
+//!   port; a busy port is refused with a suggestion of the next free one.
 //! - Starts local search (SearXNG in Docker) when Docker is running and no other search
 //!   provider is configured, then restarts the engine so it uses it.
 //! - Closing the window hides it; the tray icon opens it again or quits.
 //!
-//! This first version runs the engine from the repository checkout, installed by
-//! Tasador.bat. TASADOR_HOME points to another checkout.
+//! Two ways to run:
+//! - Installed: the installer puts the engine (with its own Python) in `engine/` next to
+//!   the app. Settings live in the user's app-config folder, SearXNG runs as the
+//!   `tasador-searxng` container started with `docker run`.
+//! - From the repository (developers): no bundled engine, so the checkout's virtualenv
+//!   (installed by Tasador.bat) runs it, settings in the repository's `.env`, SearXNG via
+//!   `docker compose`. TASADOR_HOME points to another checkout.
 
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
@@ -33,17 +37,58 @@ const DEFAULT_PORT: u16 = 8000;
 const SEARXNG_PORT: u16 = 8888;
 const PORT_KEY: &str = "TASADOR_PORT";
 
+const SEARXNG_CONTAINER: &str = "tasador-searxng";
+const SEARXNG_IMAGE: &str = "searxng/searxng:latest";
+/// The same SearXNG settings the repository uses with docker compose.
+const SEARXNG_SETTINGS: &str = include_str!("../../../../deploy/searxng/settings.yml");
+
+/// How the engine is started.
+enum Program {
+    /// Installed: `engine/tasador-engine.exe` from the installer.
+    Bundled(PathBuf),
+    /// From the repository: the checkout's virtualenv.
+    Checkout { python: PathBuf, src: PathBuf },
+}
+
 /// Where things live.
 struct Paths {
-    root: PathBuf,
-    engine: PathBuf,
-    python: PathBuf,
+    program: Program,
+    workdir: PathBuf,
     env_file: PathBuf,
     log_file: PathBuf,
+    /// The repository, when running from it (SearXNG then starts with docker compose).
+    compose_dir: Option<PathBuf>,
+    /// Folder for the SearXNG settings when the app starts the container itself.
+    searxng_dir: PathBuf,
 }
 
 impl Paths {
-    fn resolve(log_file: PathBuf) -> Self {
+    fn resolve(app: &tauri::App) -> tauri::Result<Self> {
+        let log_dir = app.path().app_log_dir()?;
+        let data_dir = app.path().app_data_dir()?;
+        let config_dir = app.path().app_config_dir()?;
+        for dir in [&log_dir, &data_dir, &config_dir] {
+            fs::create_dir_all(dir)?;
+        }
+        let log_file = log_dir.join("engine.log");
+        let searxng_dir = data_dir.join("searxng");
+        let exe = if cfg!(windows) { "tasador-engine.exe" } else { "tasador-engine" };
+        let bundled = app
+            .path()
+            .resource_dir()
+            .ok()
+            .map(|dir| dir.join("engine").join(exe))
+            .filter(|path| path.exists() && std::env::var_os("TASADOR_HOME").is_none());
+        if let Some(exe) = bundled {
+            return Ok(Paths {
+                program: Program::Bundled(exe),
+                workdir: data_dir,
+                env_file: config_dir.join(".env"),
+                log_file,
+                compose_dir: None,
+                searxng_dir,
+            });
+        }
         let root = std::env::var_os("TASADOR_HOME")
             .map(PathBuf::from)
             .unwrap_or_else(|| normalize(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..")));
@@ -53,7 +98,14 @@ impl Paths {
         } else {
             engine.join(".venv").join("bin").join("python")
         };
-        Paths { env_file: root.join(".env"), root, engine, python, log_file }
+        Ok(Paths {
+            program: Program::Checkout { python, src: engine.join("src") },
+            workdir: engine,
+            env_file: root.join(".env"),
+            log_file,
+            compose_dir: Some(root),
+            searxng_dir,
+        })
     }
 }
 
@@ -225,13 +277,15 @@ fn start_engine(shared: &Handle) {
     engine.generation += 1;
     let (generation, port) = (engine.generation, engine.port);
 
-    if !paths.python.exists() {
-        engine.phase = "error";
-        engine.message = format!(
-            "The engine is not installed yet. Run Tasador.bat once (it installs everything), then open this app again.\n\nLooked for: {}",
-            paths.python.display()
-        );
-        return;
+    if let Program::Checkout { python, .. } = &paths.program {
+        if !python.exists() {
+            engine.phase = "error";
+            engine.message = format!(
+                "The engine is not installed yet. Run Tasador.bat once (it installs everything), then open this app again.\n\nLooked for: {}",
+                python.display()
+            );
+            return;
+        }
     }
     // The port the engine just released can take a moment to free up.
     let deadline = Instant::now() + Duration::from_secs(3);
@@ -253,13 +307,24 @@ fn start_engine(shared: &Handle) {
         }
     };
     let _ = writeln!(&log, "\n--- starting the engine on port {port} ---");
-    let mut command = Command::new(&paths.python);
+    let mut command = match &paths.program {
+        Program::Bundled(exe) => {
+            let mut command = Command::new(exe);
+            command.args(["--host", "127.0.0.1", "--port"]).arg(port.to_string());
+            command
+        }
+        Program::Checkout { python, src } => {
+            let mut command = Command::new(python);
+            command
+                .args(["-m", "uvicorn", "tasador_engine.main:app_from_env", "--factory", "--app-dir"])
+                .arg(src)
+                .args(["--host", "127.0.0.1", "--port"])
+                .arg(port.to_string());
+            command
+        }
+    };
     command
-        .args(["-m", "uvicorn", "tasador_engine.main:app_from_env", "--factory", "--app-dir"])
-        .arg(paths.engine.join("src"))
-        .args(["--host", "127.0.0.1", "--port"])
-        .arg(port.to_string())
-        .current_dir(&paths.engine)
+        .current_dir(&paths.workdir)
         .env("TASADOR_DEPLOYMENT", "local")
         .env("TASADOR_SETTINGS_UI", "1")
         .env("TASADOR_AUTODETECT", "1")
@@ -281,7 +346,7 @@ fn start_engine(shared: &Handle) {
         }
         Err(err) => {
             engine.phase = "error";
-            engine.message = format!("Could not start {}: {err}", paths.python.display());
+            engine.message = format!("Could not start the engine: {err}");
         }
     }
 }
@@ -343,22 +408,15 @@ fn ensure_search(shared: Handle) {
             set("running");
             return;
         }
-        let docker = hidden(Command::new("docker").arg("info"))
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .is_ok_and(|status| status.success());
-        if !docker {
+        if !docker(&["info"], None) {
             set("unavailable");
             return;
         }
         set("starting");
-        let up = hidden(Command::new("docker").args(["compose", "--profile", "local", "up", "-d", "searxng"]))
-            .current_dir(&shared.paths.root)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .is_ok_and(|status| status.success());
+        let up = match &shared.paths.compose_dir {
+            Some(root) => docker(&["compose", "--profile", "local", "up", "-d", "searxng"], Some(root)),
+            None => run_searxng_container(&shared.paths),
+        };
         let deadline = Instant::now() + Duration::from_secs(180);
         while up && !answers(SEARXNG_PORT) && Instant::now() < deadline {
             thread::sleep(Duration::from_secs(2));
@@ -371,6 +429,57 @@ fn ensure_search(shared: Handle) {
             set("failed");
         }
     });
+}
+
+fn docker(args: &[&str], dir: Option<&Path>) -> bool {
+    let mut command = Command::new("docker");
+    command.args(args).stdout(Stdio::null()).stderr(Stdio::null());
+    if let Some(dir) = dir {
+        command.current_dir(dir);
+    }
+    hidden(&mut command).status().is_ok_and(|status| status.success())
+}
+
+fn random_hex() -> String {
+    use std::collections::hash_map::RandomState;
+    use std::hash::{BuildHasher, Hasher};
+    (0..2)
+        .map(|_| {
+            let mut hasher = RandomState::new().build_hasher();
+            hasher.write_u128(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos());
+            format!("{:016x}", hasher.finish())
+        })
+        .collect()
+}
+
+/// Installed mode: start (or create) the `tasador-searxng` container, listening on this
+/// computer only. Public DNS servers are passed because Docker Desktop's own DNS fails
+/// on some Windows machines; TASADOR_SEARXNG_DNS=system turns that off.
+fn run_searxng_container(paths: &Paths) -> bool {
+    if docker(&["start", SEARXNG_CONTAINER], None) {
+        return true;
+    }
+    if fs::create_dir_all(&paths.searxng_dir).is_err() {
+        return false;
+    }
+    let settings = paths.searxng_dir.join("settings.yml");
+    if !settings.exists() {
+        let text = SEARXNG_SETTINGS.replace("change-me-before-exposing-this-instance", &random_hex());
+        if fs::write(&settings, text).is_err() {
+            return false;
+        }
+    }
+    let volume = format!("{}:/etc/searxng", paths.searxng_dir.display());
+    let port = format!("127.0.0.1:{SEARXNG_PORT}:8080");
+    let mut args = vec!["run", "-d", "--name", SEARXNG_CONTAINER, "--restart", "unless-stopped", "-p", &port, "-v", &volume];
+    let dns = read_env_value(&paths.env_file, "TASADOR_SEARXNG_DNS").unwrap_or_else(|| "1.1.1.1,8.8.8.8".into());
+    let servers: Vec<String> = if dns == "system" { Vec::new() } else { dns.split(',').map(|s| s.trim().to_string()).collect() };
+    for server in &servers {
+        args.push("--dns");
+        args.push(server);
+    }
+    args.push(SEARXNG_IMAGE);
+    docker(&args, None)
 }
 
 // ---- commands for the window ----------------------------------------------------------------
@@ -483,9 +592,7 @@ fn main() {
             }
         })
         .setup(|app| {
-            let log_dir = app.path().app_log_dir()?;
-            fs::create_dir_all(&log_dir)?;
-            let paths = Paths::resolve(log_dir.join("engine.log"));
+            let paths = Paths::resolve(app)?;
             let port = read_env_value(&paths.env_file, PORT_KEY)
                 .and_then(|value| value.parse::<u16>().ok())
                 .filter(|port| *port >= 1024)
