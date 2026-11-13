@@ -565,33 +565,37 @@ Each release is published to **both** places:
 | Where | What | Link |
 | :--- | :--- | :--- |
 | **Cloudflare R2** | the Windows installer, always the newest | `https://pub-fb9de4da4f48439ebb34b3795d05ab11.r2.dev/tasador/latest/Tasador-windows-x64-setup.exe` |
-| **GitHub Releases** | the same installer plus `version.json`, for every version | [github.com/luisenriquecgongora/tasador/releases](https://github.com/luisenriquecgongora/tasador/releases) |
+| **Cloudflare R2** | the macOS app (Apple Silicon), always the newest | `https://pub-fb9de4da4f48439ebb34b3795d05ab11.r2.dev/tasador/latest/Tasador-macos-arm64.dmg` |
+| **GitHub Releases** | the same installers plus `version.json`, for every version | [github.com/luisenriquecgongora/tasador/releases](https://github.com/luisenriquecgongora/tasador/releases) |
 
-The installer (`Tasador-vX.Y.Z-windows-x64-setup.exe`) needs no Python and no administrator rights. It contains the desktop app and the engine with its own Python. Ollama (local recognition) and Docker Desktop (local search) are separate, optional installs: the app works without them and says what is missing.
+The installers (`Tasador-vX.Y.Z-windows-x64-setup.exe`, `Tasador-vX.Y.Z-macos-arm64.dmg`) need no Python and no administrator rights. Each contains the desktop app and the engine with its own Python. The macOS app is for Apple Silicon (M1 or newer, macOS 11+) and is not signed with an Apple Developer ID, so the first time macOS blocks it: open **System Settings → Privacy & Security** and click **Open Anyway** (on macOS 14 and older, right-click the app → **Open** also works). Ollama (local recognition) and Docker Desktop (local search) are separate, optional installs: the app works without them and says what is missing.
 
 ```mermaid
 flowchart LR
     commits["feat / fix commits<br/>on master"]
     pr["release PR<br/>'chore: release vX.Y.Z'<br/>(version + CHANGELOG)"]
     build["GitHub Windows machine<br/>engine bundle + smoke test<br/>→ Tauri → NSIS installer"]
+    buildmac["GitHub macOS machine<br/>engine bundle + smoke test<br/>→ Tauri → .dmg → smoke test inside the app"]
+    publish["publish job<br/>version.json for both"]
     r2["Cloudflare R2<br/>tasador/vX.Y.Z/ + tasador/latest/<br/>(newest 3 kept)"]
-    gh["GitHub Release vX.Y.Z<br/>installer + version.json"]
+    gh["GitHub Release vX.Y.Z<br/>installers + version.json"]
 
-    commits --> pr -- "merge" --> build
-    build --> r2
-    build --> gh
+    commits --> pr -- "merge" --> build & buildmac
+    build & buildmac --> publish
+    publish --> r2
+    publish --> gh
 
     classDef input fill:#ede9fe,stroke:#7c3aed,color:#3b0764
     classDef ours fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
     classDef output fill:#dcfce7,stroke:#16a34a,color:#14532d
     class commits,pr input
-    class build ours
+    class build,buildmac,publish ours
     class r2,gh output
 ```
 
-How a release happens: every push to `master` updates a "chore: release vX.Y.Z" pull request (version numbers and `CHANGELOG.md` come from the commit types: `feat` = minor, `fix` = patch while below 1.0). Merging it tags the version and starts `.github/workflows/release.yml`, which builds the installer on GitHub's Windows machine and publishes it to R2 and the GitHub Release. The repository needs the `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` secrets (and optionally `R2_BUCKET_NAME`, `R2_CUSTOM_DOMAIN`), and Actions must be allowed to create pull requests (Settings → Actions → General).
+How a release happens: every push to `master` updates a "chore: release vX.Y.Z" pull request (version numbers and `CHANGELOG.md` come from the commit types: `feat` = minor, `fix` = patch while below 1.0). Merging it tags the version and starts `.github/workflows/release.yml`, which builds the installers on GitHub's Windows and macOS machines (PyInstaller only builds for the system it runs on) and, once both succeed, publishes them to R2 and the GitHub Release. If either build fails, nothing is published. The repository needs the `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` secrets (and optionally `R2_BUCKET_NAME`, `R2_CUSTOM_DOMAIN`), and Actions must be allowed to create pull requests (Settings → Actions → General).
 
-To build the installer on your own computer: `python scripts/build_installer.py` (needs Rust, Node.js and the engine's virtualenv; the Tauri step needs several GB of free memory).
+To build the installer on your own computer: `python scripts/build_installer.py` (needs Rust, Node.js and the engine's virtualenv; the Tauri step needs several GB of free memory). It builds for the system it runs on: a `.exe` installer on Windows, a `.dmg` on macOS.
 
 ## Repository map
 
