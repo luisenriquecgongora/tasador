@@ -1,17 +1,21 @@
-"""Build the stand-alone Windows installer: dist/Tasador-v<version>-windows-x64-setup.exe
+"""Build the stand-alone installer for this computer's system:
+  Windows: dist/Tasador-v<version>-windows-x64-setup.exe  (NSIS, installs for the current user)
+  macOS:   dist/Tasador-v<version>-macos-arm64.dmg         (Apple Silicon; ad-hoc signed)
 
 1. The engine with its own Python (scripts/build_engine_bundle.py, smoke-tested).
-2. The desktop app, bundled by Tauri into an NSIS installer that also carries the engine
-   folder (apps/desktop/src-tauri/tauri.installer.json adds it as a resource).
-3. dist/version.json: version, file name, SHA-256 and the public download URLs, for the
-   release page and a future in-app update check.
+2. The desktop app, bundled by Tauri with the engine folder as a resource
+   (apps/desktop/src-tauri/tauri.installer.json adds it).
+3. macOS only: the .dmg is mounted and the engine inside the app is smoke-tested again, so a
+   bundling problem (missing files, broken links) fails the build instead of the user.
 
-The installer needs no administrator rights (it installs for the current user) and no
-Python. Ollama (local recognition) and Docker Desktop (local search) stay separate
-installs: the app works without them and says what is missing.
+The installer needs no administrator rights and no Python. Ollama (local recognition) and
+Docker Desktop (local search) stay separate installs: the app works without them and says
+what is missing. PyInstaller only builds for the system it runs on, so each installer is
+built on its own system.
 
-Releases are built by .github/workflows/release.yml on GitHub's Windows machines, which
-then publish to both the GitHub Release and Cloudflare R2. This script also runs locally.
+Releases are built by .github/workflows/release.yml on GitHub's Windows and macOS machines;
+scripts/publish_release_to_r2.py then writes version.json and publishes both installers.
+This script also runs locally.
 
 Usage:
     python scripts/build_installer.py                       # version from tauri.conf.json
@@ -21,22 +25,31 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import datetime
-import hashlib
 import json
 import os
+import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 APP = ROOT / "apps" / "desktop" / "src-tauri"
-ENGINE_EXE = ROOT / "build" / "engine" / "tasador-engine" / "tasador-engine.exe"
+ENGINE_NAME = "tasador-engine" + (".exe" if os.name == "nt" else "")
+ENGINE_EXE = ROOT / "build" / "engine" / "tasador-engine" / ENGINE_NAME
 DIST = ROOT / "dist"
 PRODUCT = "Tasador"
-PUBLIC = os.environ.get("R2_CUSTOM_DOMAIN", "https://pub-fb9de4da4f48439ebb34b3795d05ab11.r2.dev").rstrip("/")
-REPO = "https://github.com/luisenriquecgongora/tasador"
+
+
+def target() -> tuple[str, str, str, str]:
+    """(platform name, Tauri bundle, Tauri output glob, file suffix) for this computer."""
+    if sys.platform == "win32":
+        return "windows-x64", "nsis", "*{version}*-setup.exe", "-setup.exe"
+    if sys.platform == "darwin":
+        arch = "arm64" if platform.machine() == "arm64" else "x64"
+        return f"macos-{arch}", "dmg", "*{version}*.dmg", ".dmg"
+    raise SystemExit("Installers are built on Windows and macOS only")
 
 
 def engine_python() -> str:
@@ -47,12 +60,18 @@ def engine_python() -> str:
     return sys.executable
 
 
-def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+def smoke_test_dmg(dmg: Path) -> None:
+    """Mounts the .dmg read-only and smoke-tests the engine as the installed app has it."""
+    mount = Path(tempfile.mkdtemp(prefix="tasador-dmg-"))
+    subprocess.run(["hdiutil", "attach", str(dmg), "-nobrowse", "-readonly", "-mountpoint", str(mount)], check=True)
+    try:
+        engines = sorted(mount.glob(f"*.app/Contents/Resources/engine/{ENGINE_NAME}"))
+        if len(engines) != 1:
+            raise SystemExit(f"Expected the engine inside the app in {dmg.name}, found {[str(e) for e in engines]}")
+        print(f"[installer] smoke-testing the engine inside {dmg.name} ...", flush=True)
+        subprocess.run([engine_python(), str(ROOT / "scripts" / "build_engine_bundle.py"), "--test-only", "--exe", str(engines[0])], check=True)
+    finally:
+        subprocess.run(["hdiutil", "detach", str(mount)], check=False)
 
 
 def main() -> int:
@@ -71,38 +90,27 @@ def main() -> int:
     if not ENGINE_EXE.exists():
         raise SystemExit(f"{ENGINE_EXE} is missing: run without --skip-engine")
 
+    name, bundle, pattern, suffix = target()
     npx = shutil.which("npx")
     if not npx:
         raise SystemExit("Building the installer needs Node.js (npx runs the Tauri bundler): https://nodejs.org")
     print("[installer] bundling the app with Tauri (compiles the app, then packs everything) ...", flush=True)
     subprocess.run(
-        [npx, "--yes", "@tauri-apps/cli@2", "build", "--bundles", "nsis", "--config", "tauri.installer.json"],
+        [npx, "--yes", "@tauri-apps/cli@2", "build", "--bundles", bundle, "--config", "tauri.installer.json"],
         check=True,
         cwd=APP,
     )
 
-    built = sorted((APP / "target" / "release" / "bundle" / "nsis").glob(f"*{version}*-setup.exe"), key=lambda p: p.stat().st_mtime)
+    out_dir = APP / "target" / "release" / "bundle" / bundle
+    built = sorted(out_dir.glob(pattern.format(version=version)), key=lambda p: p.stat().st_mtime)
     if not built:
-        raise SystemExit("Tauri finished but no installer was found under target/release/bundle/nsis")
+        raise SystemExit(f"Tauri finished but no installer was found under {out_dir}")
     DIST.mkdir(exist_ok=True)
-    final = DIST / f"{PRODUCT}-v{version}-windows-x64-setup.exe"
+    final = DIST / f"{PRODUCT}-v{version}-{name}{suffix}"
     shutil.copy2(built[-1], final)
-
-    manifest = {
-        "product": PRODUCT,
-        "version": version,
-        "released_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
-        "windows_x64": {
-            "file": final.name,
-            "size_bytes": final.stat().st_size,
-            "sha256": sha256(final),
-            "url": f"{PUBLIC}/tasador/v{version}/{final.name}",
-            "latest_url": f"{PUBLIC}/tasador/latest/{PRODUCT}-windows-x64-setup.exe",
-        },
-        "release_page": f"{REPO}/releases/tag/v{version}",
-    }
-    (DIST / "version.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    print(f"[installer] {final} ({final.stat().st_size / 2**20:.0f} MB), sha256 {manifest['windows_x64']['sha256']}")
+    if bundle == "dmg":
+        smoke_test_dmg(final)
+    print(f"[installer] {final} ({final.stat().st_size / 2**20:.0f} MB)")
     return 0
 
 

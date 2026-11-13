@@ -9,6 +9,7 @@ bundle: the HTTP server, the settings page file, text reading (model files) and 
 Usage:
     python scripts/build_engine_bundle.py            # build + smoke test
     python scripts/build_engine_bundle.py --test-only
+    python scripts/build_engine_bundle.py --test-only --exe /Volumes/Tasador/Tasador.app/Contents/Resources/engine/tasador-engine
 """
 
 from __future__ import annotations
@@ -70,7 +71,7 @@ def build() -> None:
         "--exclude-module", "tkinter",
         str(entry),
     ]
-    if ICON.exists():
+    if os.name == "nt" and ICON.exists():  # the .exe icon; macOS and Linux builds have none
         command[command.index("--paths"):command.index("--paths")] = ["--icon", str(ICON)]
     print("[build] PyInstaller (a few minutes) ...", flush=True)
     subprocess.run(command, check=True, cwd=ROOT)
@@ -95,9 +96,15 @@ def _nameplate_png() -> bytes:
 
     image = Image.new("RGB", (900, 260), "white")
     draw = ImageDraw.Draw(image)
-    try:
-        font = ImageFont.truetype("arial.ttf", 48)
-    except OSError:
+    font = None
+    # Windows finds arial.ttf by name; macOS keeps it under Supplemental
+    for name in ("arial.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf"):
+        try:
+            font = ImageFont.truetype(name, 48)
+            break
+        except OSError:
+            pass
+    if font is None:
         font = ImageFont.load_default(size=48)
     draw.text((30, 40), "MODEL DJM-900NXS2", fill="black", font=font)
     out = io.BytesIO()
@@ -119,15 +126,15 @@ def _post_photo(url: str, png: bytes) -> dict:
         return json.load(response)
 
 
-def smoke_test() -> None:
-    if not EXE.exists():
-        raise SystemExit(f"{EXE} does not exist: build first")
+def smoke_test(exe: Path = EXE) -> None:
+    if not exe.exists():
+        raise SystemExit(f"{exe} does not exist: build first")
     port = _free_port()
     env = {**os.environ, "TASADOR_DEPLOYMENT": "local", "TASADOR_SETTINGS_UI": "1",
            "TASADOR_VISION_PROVIDER": "none", "TASADOR_SEARCH_PROVIDER": "none"}
     log = WORK / "smoke.log"
     with open(log, "w", encoding="utf-8") as out:
-        process = subprocess.Popen([str(EXE), "--port", str(port)], env=env, stdout=out, stderr=subprocess.STDOUT)
+        process = subprocess.Popen([str(exe), "--port", str(port)], env=env, stdout=out, stderr=subprocess.STDOUT)
     base = f"http://127.0.0.1:{port}"
     try:
         deadline = time.time() + 90
@@ -170,9 +177,10 @@ def smoke_test() -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--test-only", action="store_true", help="only run the smoke test on an existing build")
+    parser.add_argument("--exe", type=Path, default=EXE, help="engine program to smoke-test (default: the build output)")
     args = parser.parse_args()
     if not args.test_only:
         if (OUT / NAME).exists():
             shutil.rmtree(OUT / NAME)
         build()
-    smoke_test()
+    smoke_test(args.exe)

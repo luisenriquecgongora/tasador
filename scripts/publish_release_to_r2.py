@@ -1,10 +1,12 @@
 """Publish a Tasador release to Cloudflare R2 (the GitHub Release gets the same files).
 
-Uploads the installer from build_installer.py to two places in the bucket:
+Takes the installers that build_installer.py made on each system (all in dist/), writes
+dist/version.json (version, file, size, SHA-256 and URLs per platform), and uploads them to
+two places in the bucket:
   tasador/v<version>/  immutable, cached for a year
   tasador/latest/      short cache, always the newest release (the website links here)
 then enforces the retention cap. A failed prune fails the publish, so the cap can never
-be silently skipped.
+be silently skipped. Every platform must be present, so a release is never half published.
 
 Usage:
     set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY (and optionally R2_BUCKET_NAME)
@@ -12,6 +14,9 @@ Usage:
 """
 
 import argparse
+import datetime
+import hashlib
+import json
 import logging
 import os
 import sys
@@ -29,6 +34,48 @@ DIST_DIR = ROOT_DIR / "dist"
 PRODUCT = "Tasador"
 DEFAULT_PUBLIC_DOMAIN = "https://pub-fb9de4da4f48439ebb34b3795d05ab11.r2.dev"
 KEEP = 3  # releases kept in the bucket (inside the R2 free tier); GitHub keeps them all
+REPO = "https://github.com/luisenriquecgongora/tasador"
+# platform -> (file suffix, version.json key, content type)
+PLATFORMS = {
+    "windows-x64": ("-windows-x64-setup.exe", "windows_x64", "application/octet-stream"),
+    "macos-arm64": ("-macos-arm64.dmg", "macos_arm64", "application/x-apple-diskimage"),
+}
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def find_installers(dist: Path, version: str) -> dict:
+    """{platform: installer path} for every platform, or exits naming what is missing."""
+    found = {platform: dist / f"{PRODUCT}-v{version}{suffix}" for platform, (suffix, _, _) in PLATFORMS.items()}
+    missing = [path.name for path in found.values() if not path.exists()]
+    if missing:
+        raise SystemExit(f"Missing {', '.join(missing)} in {dist}. Build each with scripts/build_installer.py --version {version}.")
+    return found
+
+
+def build_manifest(version: str, installers: dict, public: str, prefix: str) -> dict:
+    manifest = {
+        "product": PRODUCT,
+        "version": version,
+        "released_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+    }
+    for platform, path in installers.items():
+        suffix, key, _ = PLATFORMS[platform]
+        manifest[key] = {
+            "file": path.name,
+            "size_bytes": path.stat().st_size,
+            "sha256": sha256(path),
+            "url": f"{public}/{prefix}/v{version}/{path.name}",
+            "latest_url": f"{public}/{prefix}/latest/{PRODUCT}{suffix}",
+        }
+    manifest["release_page"] = f"{REPO}/releases/tag/v{version}"
+    return manifest
 
 
 def upload_with_retry(s3, src: Path, bucket: str, key: str, content_type: str, cache_control: str) -> None:
@@ -49,28 +96,27 @@ def publish_release(version: str, prefix: str = "tasador", max_keep: int = KEEP)
     bucket = os.environ.get("R2_BUCKET_NAME", "luisenrique-releases")
     public = os.environ.get("R2_CUSTOM_DOMAIN", DEFAULT_PUBLIC_DOMAIN).rstrip("/")
 
-    installer = DIST_DIR / f"{PRODUCT}-v{version}-windows-x64-setup.exe"
+    installers = find_installers(DIST_DIR, version)
     manifest = DIST_DIR / "version.json"
-    for required in (installer, manifest):
-        if not required.exists():
-            raise SystemExit(f"Missing {required.name} in {DIST_DIR}. Run scripts/build_installer.py --version {version} first.")
+    manifest.write_text(json.dumps(build_manifest(version, installers, public, prefix), indent=2), encoding="utf-8")
 
     s3 = get_r2_client()
     version_dir, latest_dir = f"{prefix}/v{version}", f"{prefix}/latest"
     immutable, short = "public, max-age=31536000, immutable", "public, max-age=300"
-    uploads = [
-        (installer, f"{version_dir}/{installer.name}", "application/octet-stream", immutable),
-        (manifest, f"{version_dir}/version.json", "application/json", "public, max-age=86400"),
-        (installer, f"{latest_dir}/{PRODUCT}-windows-x64-setup.exe", "application/octet-stream", short),
-        # The manifest goes last, so version.json never points at a file that is not there yet
-        (manifest, f"{latest_dir}/version.json", "application/json", "no-cache, must-revalidate"),
-    ]
+    uploads = []
+    for platform, installer in installers.items():
+        suffix, _, content_type = PLATFORMS[platform]
+        uploads.append((installer, f"{version_dir}/{installer.name}", content_type, immutable))
+        uploads.append((installer, f"{latest_dir}/{PRODUCT}{suffix}", content_type, short))
+    # The manifests go last, so version.json never points at a file that is not there yet
+    uploads.append((manifest, f"{version_dir}/version.json", "application/json", "public, max-age=86400"))
+    uploads.append((manifest, f"{latest_dir}/version.json", "application/json", "no-cache, must-revalidate"))
     logger.info("Uploading %d objects to s3://%s/%s ...", len(uploads), bucket, prefix)
     for src, key, content_type, cache_control in uploads:
         upload_with_retry(s3, src, bucket, key, content_type, cache_control)
 
-    logger.info("Versioned download: %s/%s/%s", public, version_dir, installer.name)
-    logger.info("Latest download:    %s/%s/%s-windows-x64-setup.exe", public, latest_dir, PRODUCT)
+    for platform, (suffix, _, _) in PLATFORMS.items():
+        logger.info("Latest %-12s %s/%s/%s%s", platform, public, latest_dir, PRODUCT, suffix)
     logger.info("Update manifest:    %s/%s/version.json", public, latest_dir)
 
     logger.info("Enforcing retention cap (max %d releases)...", max_keep)
