@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  engine:
+    name: Engine (ruff + pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: services/tasador-engine/pyproject.toml
+      - run: pip install -e "./services/tasador-engine[ocr,barcode,heic,dev]" boto3
+      - run: python scripts/verify.py --only python
+      - run: python -m unittest scripts/test_prune_r2_releases.py
+
+  desktop:
+    name: Desktop app (cargo test)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - run: cargo test --release
+        working-directory: apps/desktop/src-tauri
