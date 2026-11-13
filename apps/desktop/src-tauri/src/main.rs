@@ -431,8 +431,26 @@ fn ensure_search(shared: Handle) {
     });
 }
 
+/// Folders where Docker Desktop and Homebrew put `docker` on macOS. An app opened from Finder
+/// gets a minimal PATH without them, so `docker` would not be found.
+const MACOS_DOCKER_DIRS: [&str; 3] = ["/usr/local/bin", "/opt/homebrew/bin", "/Applications/Docker.app/Contents/Resources/bin"];
+
+/// `current` PATH with the macOS Docker folders appended (each only once).
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn path_with_docker_dirs(current: &str) -> String {
+    let mut parts: Vec<&str> = current.split(':').filter(|part| !part.is_empty()).collect();
+    for dir in MACOS_DOCKER_DIRS {
+        if !parts.contains(&dir) {
+            parts.push(dir);
+        }
+    }
+    parts.join(":")
+}
+
 fn docker(args: &[&str], dir: Option<&Path>) -> bool {
     let mut command = Command::new("docker");
+    #[cfg(target_os = "macos")]
+    command.env("PATH", path_with_docker_dirs(&std::env::var("PATH").unwrap_or_default()));
     command.args(args).stdout(Stdio::null()).stderr(Stdio::null());
     if let Some(dir) = dir {
         command.current_dir(dir);
@@ -627,6 +645,15 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn docker_dirs_are_appended_once() {
+        assert_eq!(
+            path_with_docker_dirs("/usr/bin:/bin:/usr/local/bin"),
+            "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin:/Applications/Docker.app/Contents/Resources/bin"
+        );
+        assert_eq!(path_with_docker_dirs(""), MACOS_DOCKER_DIRS.join(":"));
+    }
 
     fn temp_file(name: &str, text: &str) -> PathBuf {
         let path = std::env::temp_dir().join(format!("tasador-desktop-test-{}-{name}", std::process::id()));
