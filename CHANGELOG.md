@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/luisenriquecgongora/tasador/compare/v0.2.0...v0.3.0) (2026-11-23)
+
+
+### Features
+
+* **scripts:** add visual diff, artifact opener, and cowork timeline ([c9a2550](https://github.com/luisenriquecgongora/tasador/commit/c9a25503a8b33a217d8916b9772418143bac1a6c))
+* **scripts:** sync cowork vision hud and visual release digest v1.4.5 ([64a383c](https://github.com/luisenriquecgongora/tasador/commit/64a383ca319803adcdde2511c745036729c71e54))
+
 ## [0.2.0](https://github.com/luisenriquecgongora/tasador/compare/v0.1.0...v0.2.0) (2026-11-13)
 
 
