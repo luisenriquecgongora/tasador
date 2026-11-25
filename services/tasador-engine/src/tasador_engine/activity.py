@@ -10,12 +10,16 @@ from __future__ import annotations
 
 import base64
 import io
+import json
+import os
+import sqlite3
 import threading
 import time
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from PIL import Image
@@ -126,12 +130,134 @@ class ActivityRun:
         return summary
 
 
+def default_db_path() -> Path:
+    env_p = os.environ.get("TASADOR_DB_PATH")
+    if env_p:
+        return Path(env_p)
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        app_dir = Path(local_app_data) / "com.luisenriquecgongora.tasador"
+        if app_dir.exists():
+            return app_dir / "runs.db"
+    home_dir = Path.home() / ".tasador"
+    try:
+        home_dir.mkdir(parents=True, exist_ok=True)
+        return home_dir / "runs.db"
+    except Exception:
+        return Path("tasador_runs.db")
+
+
 class ActivityTracker:
-    def __init__(self, max_runs: int = 50):
+    def __init__(self, max_runs: int = 100, db_path: str | Path | None = None):
         self._max_runs = max_runs
         self._runs: deque[ActivityRun] = deque(maxlen=max_runs)
         self._by_id: dict[str, ActivityRun] = {}
         self._lock = threading.Lock()
+        self._db_path = Path(db_path) if db_path else default_db_path()
+        self._init_db()
+        self._load_from_db()
+
+    def _init_db(self) -> None:
+        try:
+            self._db_path.parent.mkdir(parents=True, exist_ok=True)
+            with sqlite3.connect(str(self._db_path)) as conn:
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS runs (
+                        id TEXT PRIMARY KEY,
+                        created_at TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        duration_ms INTEGER DEFAULT 0,
+                        error TEXT,
+                        best_name TEXT,
+                        best_brand TEXT,
+                        best_model TEXT,
+                        best_confidence REAL DEFAULT 0.0,
+                        thumbnails_json TEXT,
+                        input_summary_json TEXT,
+                        output_json TEXT,
+                        provider_json TEXT,
+                        steps_json TEXT
+                    )
+                """)
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_runs_created ON runs(created_at DESC)")
+        except Exception:
+            pass
+
+    def _save_run_to_db(self, run: ActivityRun) -> None:
+        try:
+            best = (run.output and run.output.get("best")) or {}
+            with sqlite3.connect(str(self._db_path)) as conn:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO runs (
+                        id, created_at, status, duration_ms, error,
+                        best_name, best_brand, best_model, best_confidence,
+                        thumbnails_json, input_summary_json, output_json,
+                        provider_json, steps_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        run.id,
+                        run.created_at,
+                        run.status,
+                        run.duration_ms,
+                        run.error,
+                        best.get("name"),
+                        best.get("brand"),
+                        best.get("model"),
+                        float(best.get("confidence") or 0.0),
+                        json.dumps(run.thumbnails),
+                        json.dumps(run.input_summary),
+                        json.dumps(run.output) if run.output else None,
+                        json.dumps(run.provider) if run.provider else None,
+                        json.dumps([s.to_dict() for s in run.steps]),
+                    ),
+                )
+        except Exception:
+            pass
+
+    def _load_from_db(self) -> None:
+        try:
+            if not self._db_path.exists():
+                return
+            with sqlite3.connect(str(self._db_path)) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute(
+                    "SELECT * FROM runs ORDER BY created_at DESC LIMIT ?", (self._max_runs,)
+                )
+                rows = cursor.fetchall()
+                for r in reversed(rows):
+                    steps_data = json.loads(r["steps_json"] or "[]")
+                    steps = [
+                        StepTrace(
+                            step_id=s.get("step_id", ""),
+                            title=s.get("title", ""),
+                            status=s.get("status", "ok"),
+                            duration_ms=s.get("duration_ms", 0),
+                            inputs=s.get("inputs", {}),
+                            outputs=s.get("outputs", {}),
+                            warnings=s.get("warnings", []),
+                            details=s.get("details"),
+                        )
+                        for s in steps_data
+                    ]
+                    run = ActivityRun(
+                        id=r["id"],
+                        created_at=r["created_at"],
+                        status=r["status"],
+                        duration_ms=r["duration_ms"] or 0,
+                        error=r["error"],
+                        input_summary=json.loads(r["input_summary_json"] or "{}"),
+                        thumbnails=json.loads(r["thumbnails_json"] or "[]"),
+                        steps=steps,
+                        output=json.loads(r["output_json"]) if r["output_json"] else None,
+                        provider=json.loads(r["provider_json"]) if r["provider_json"] else None,
+                    )
+                    self._runs.append(run)
+                    self._by_id[run.id] = run
+        except Exception:
+            pass
 
     def start_run(self, images: list[PreparedImage], context: IdentifyContext) -> ActivityRun:
         run_id = f"run_{uuid.uuid4().hex[:10]}"
@@ -177,6 +303,7 @@ class ActivityTracker:
                 self._by_id.pop(oldest.id, None)
             self._runs.append(run)
             self._by_id[run_id] = run
+            self._save_run_to_db(run)
 
         return run
 
@@ -206,6 +333,7 @@ class ActivityTracker:
             run = self._by_id.get(run_id)
             if run:
                 run.steps.append(trace)
+                self._save_run_to_db(run)
 
     def complete_run(
         self,
@@ -223,6 +351,7 @@ class ActivityTracker:
                 run.provider = provider_info or (
                     response.provider.model_dump() if response.provider else None
                 )
+                self._save_run_to_db(run)
 
     def fail_run(self, run_id: str, error_message: str, duration_ms: int = 0) -> None:
         with self._lock:
@@ -231,6 +360,7 @@ class ActivityTracker:
                 run.status = "failed"
                 run.error = error_message
                 run.duration_ms = duration_ms
+                self._save_run_to_db(run)
 
     def list_history(self) -> list[dict[str, Any]]:
         with self._lock:
@@ -253,6 +383,11 @@ class ActivityTracker:
         with self._lock:
             self._runs.clear()
             self._by_id.clear()
+            try:
+                with sqlite3.connect(str(self._db_path)) as conn:
+                    conn.execute("DELETE FROM runs")
+            except Exception:
+                pass
 
 
 # Global activity singleton across the engine

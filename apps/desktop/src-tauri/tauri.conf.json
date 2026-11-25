@@ -12,10 +12,10 @@
       {
         "label": "main",
         "title": "Tasador",
-        "width": 470,
-        "height": 860,
-        "minWidth": 380,
-        "minHeight": 520,
+        "width": 1200,
+        "height": 840,
+        "minWidth": 720,
+        "minHeight": 540,
         "resizable": true,
         "center": true
       }

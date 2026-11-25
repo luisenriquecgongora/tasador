@@ -64,6 +64,8 @@ def build() -> None:
         # The settings page file: added by path, --collect-data misses it for a source checkout
         "--add-data", f"{ENGINE / 'src' / 'tasador_engine' / 'static'}{os.pathsep}tasador_engine/static",
         "--collect-all", "rapidocr_onnxruntime",     # OCR models and config files
+        "--collect-all", "pypdfium2",                # PDF invoice rasterizer
+        "--collect-all", "pypdfium2_raw",            # PDFium native binary DLLs
         "--collect-submodules", "uvicorn",           # uvicorn picks its loops and protocols by name
         "--collect-all", "pillow_heif",
         "--hidden-import", "zxingcpp",
