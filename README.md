@@ -350,26 +350,35 @@ The language, currency and country are not settings: the calling app sends them 
 
 ### Windows: the desktop app
 
-Double-click **[`Tasador-Desktop.bat`](Tasador-Desktop.bat)** for a small Tasador window instead of a console and a browser tab:
+Launch directly from the **Desktop shortcut** (`Tasador.lnk`) or double-click **[`Tasador-Desktop.bat`](Tasador-Desktop.bat)** for a native desktop window:
 
 ```
-┌──────────────────────────────────────────────┐
-│ 🔎 Tasador   [Engine: running] [Local search: running] │
-│ Port [8000] [Apply]  [📌 Pin]  [Open in browser]       │
-├──────────────────────────────────────────────┤
-│  the settings page: status · recognition +    │
-│  model · links and prices · try a photo       │
-└──────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│ 🔎 Tasador  [Engine: running] [Search: running] [Runs: 4]│
+│ Port [8000] [Apply]  [📌 Pin]  [Open in browser]        │
+├────────────────────────────────────────────────────────┤
+│  ⚡ Pipeline Inspector: step waterfall & in/outs       │
+│  🕒 History: searchable log with thumbnails & rerun     │
+│  🧪 Playground: drag & drop test photo bench           │
+│  ⚙️ Settings: Ollama / Claude / SearXNG / Brave        │
+└────────────────────────────────────────────────────────┘
           tray icon: Open · Restart engine · Quit
 ```
 
+- **Desktop Shortcut:** Directly launches the native Tauri desktop window and manages the background engine seamlessly.
+- **⚡ Live Pipeline Inspector:** Visual trace showing intermediate artifacts for every stage:
+  1. *Input Ingestion:* image count, dimensions, file size, target currency and country.
+  2. *ZXing Barcodes:* decoded formats (EAN-13, UPC, Code-128) and raw values.
+  3. *RapidOCR Text:* extracted nameplate lines and serial badges.
+  4. *Vision Multimodal AI:* candidate name, brand, model, confidence %, and query formulations.
+  5. *Web Search & Pricing:* verified shop links, new/used price ranges, and outlier filtering.
+  6. *Synthesized Payload:* final entity card and raw JSON payload.
+- **🕒 Execution History & Re-Run:** Automatically records incoming requests from both local playground and external clients (e.g. Takient). Allows one-click **Re-run** using cached photo bytes.
 - **The engine runs hidden** inside the app, with no console window. Closing the window keeps Tasador in the tray; **Quit** in the tray stops everything.
 - **Port:** type one and press **Apply**. The engine restarts on it by itself. A port another program uses is refused, with the next free one suggested. The port is saved as `TASADOR_PORT` in `.env`, so `Tasador.bat` uses the same one.
 - **Pin** keeps the window above other windows, like a HUD.
 - **Local search:** if Docker Desktop is running and no other search is chosen, the app starts SearXNG and switches the engine to it as soon as it answers.
 - **First run** installs the engine (through `Tasador.bat`) and builds the app with Rust ([rustup.rs](https://rustup.rs)), which takes several minutes. After that it opens in seconds.
-
-This first version runs the engine from this folder. A stand-alone installer that includes Python is planned (see [FUTURE_PLANS.md](FUTURE_PLANS.md)).
 
 ### Any OS: from a terminal
 

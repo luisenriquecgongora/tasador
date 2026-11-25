@@ -170,4 +170,29 @@ flowchart LR
 - Photos are re-encoded before anything else sees them, which drops EXIF metadata such as GPS position.
 - Opening result pages (`pages.py`): at most `TASADOR_VERIFY_PAGES` (8) per request, 4 at a time, robots.txt respected, a clear `TasadorBot` user agent, 3 MB cap, HTML only, and private / local addresses refused on every redirect hop.
 - The local settings page (`settings_ui.py`) is off unless `TASADOR_SETTINGS_UI` is set. It answers only loopback connections with a `localhost` Host header (against DNS rebinding), needs a per-start random key to save, accepts only a fixed list of settings with validated values, refuses settings that cannot work before saving, and never sends saved keys back.
-- Nothing is stored. In local mode the photos never leave the machine; only text search queries do.
+- In local mode the photos never leave the machine; only text search queries do.
+
+## Telemetry, Pipeline Tracing & Execution Studio
+
+The engine includes an in-memory telemetry ring buffer (`activity.py`) that captures the intermediate artifacts of every stage without slowing down inference:
+
+```mermaid
+flowchart TD
+    subgraph PipelineTracing["Pipeline Telemetry & Studio"]
+        R1["1. Ingestion: image specs, dimensions & base64 thumbnails"]
+        R2["2. Barcodes: ZXing decoded formats, values & evidence"]
+        R3["3. OCR Text: RapidOCR extracted lines per photo"]
+        R4["4. Vision AI: photos sent, candidate model reasoning & confidence"]
+        R5["5. Search & Prices: generated queries, verified shop listings & price distributions"]
+        R6["6. Output Synthesis: unified entity payload, evidence trail & warnings"]
+    end
+```
+
+### Activity Endpoints & Replay
+
+- `GET /v1/activity/history`: List recent runs with thumbnails, item names, latencies, and statuses.
+- `GET /v1/activity/{run_id}`: Full trace of an execution with detailed inputs and outputs per step.
+- `POST /v1/activity/{run_id}/rerun`: Replays cached photo bytes and context with the currently active engine configuration.
+- `DELETE /v1/activity/history`: Clears execution history.
+
+The studio UI (`/`) renders this trace live in the **⚡ Pipeline Inspector**, provides chronological review in **🕒 History**, allows testing via **🧪 Playground**, and exposes configuration in **⚙️ Settings**.
