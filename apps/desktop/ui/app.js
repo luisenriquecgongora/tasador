@@ -21,6 +21,17 @@ const SEARCH = {
 
 let shownUrl = null;
 let portEdited = false;
+let lastRunsUrl = null;
+
+async function fetchRunsCount(baseUrl) {
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/activity/history`);
+    if (res.ok) {
+      const runs = await res.json();
+      pill("runs-pill", [`Runs: ${runs.length}`, runs.length > 0 ? "ok" : ""]);
+    }
+  } catch (e) {}
+}
 
 function pill(id, [text, cls]) {
   const node = $(id);
@@ -49,6 +60,7 @@ function render(status) {
     if (!$("note").classList.contains("bad")) {
       note(`Apps on this computer reach Tasador at ${status.url.replace(/\/$/, "")}. Closing this window keeps it in the tray.`);
     }
+    fetchRunsCount(status.url);
   } else {
     shownUrl = null;
     const title = status.phase === "error" ? "Tasador needs your attention" : "Starting…";

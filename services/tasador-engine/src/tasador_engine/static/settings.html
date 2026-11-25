@@ -3,142 +3,328 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tasador settings</title>
+<title>Tasador — Studio & Pipeline Inspector</title>
 <style>
   :root {
-    --bg: #f6f7f9; --card: #ffffff; --text: #1f2430; --muted: #6b7280; --line: #e3e6ea;
-    --accent: #2563eb; --accent-text: #ffffff; --ok: #15803d; --ok-bg: #dcfce7; --warn: #a16207; --warn-bg: #fef9c3;
-    --off: #6b7280; --off-bg: #f3f4f6; --bad: #b91c1c; --bad-bg: #fee2e2;
+    --bg: #f8fafc; --card: #ffffff; --card-alt: #f1f5f9; --text: #0f172a; --muted: #64748b; --line: #e2e8f0;
+    --accent: #2563eb; --accent-hover: #1d4ed8; --accent-text: #ffffff;
+    --ok: #16a34a; --ok-bg: #dcfce7; --ok-border: #bbf7d0;
+    --warn: #d97706; --warn-bg: #fef3c7; --warn-border: #fde68a;
+    --bad: #dc2626; --bad-bg: #fee2e2; --bad-border: #fecaca;
+    --off: #64748b; --off-bg: #f1f5f9;
+    --cyan: #0284c7; --cyan-bg: #e0f2fe;
+    --purple: #7c3aed; --purple-bg: #ede9fe;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #12151b; --card: #1b1f27; --text: #e7e9ee; --muted: #9aa3b2; --line: #2c323d;
-      --accent: #5b8cff; --accent-text: #0b1020; --ok: #86efac; --ok-bg: #14301f; --warn: #fde68a; --warn-bg: #3a3214;
-      --off: #9aa3b2; --off-bg: #262b35; --bad: #fca5a5; --bad-bg: #3b1d1d;
+      --bg: #0b0f17; --card: #151b26; --card-alt: #1c2433; --text: #f1f5f9; --muted: #94a3b8; --line: #263143;
+      --accent: #3b82f6; --accent-hover: #60a5fa; --accent-text: #0b0f17;
+      --ok: #4ade80; --ok-bg: #143321; --ok-border: #1e5233;
+      --warn: #fbbf24; --warn-bg: #3d2f10; --warn-border: #5e4718;
+      --bad: #f87171; --bad-bg: #3d1717; --bad-border: #632323;
+      --off: #94a3b8; --off-bg: #1e2636;
+      --cyan: #38bdf8; --cyan-bg: #0c2b42;
+      --purple: #a78bfa; --purple-bg: #291b4a;
     }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
-  h1 { font-size: 24px; margin: 0 0 4px; }
-  h2 { font-size: 17px; margin: 0 0 4px; }
-  p.lead, .hint { color: var(--muted); margin: 0 0 12px; }
-  .hint { font-size: 13px; margin: 6px 0 0; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-top: 16px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-  .chip { border-radius: 999px; padding: 3px 10px; font-size: 13px; background: var(--off-bg); color: var(--off); }
-  .chip.ok { background: var(--ok-bg); color: var(--ok); } .chip.warn { background: var(--warn-bg); color: var(--warn); }
-  .chip.bad { background: var(--bad-bg); color: var(--bad); }
-  .modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin: 12px 0; }
-  .mode { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; display: block; }
-  .mode input { margin-right: 6px; }
-  .mode small { display: block; color: var(--muted); margin-left: 22px; font-size: 12.5px; }
-  .mode:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-  .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-  label.f { display: block; font-size: 13px; color: var(--muted); }
-  label.f input, label.f select { display: block; width: 100%; margin-top: 4px; padding: 8px 10px; border-radius: 8px;
-    border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+  /* Top Studio Navigation */
+  header.studio-nav {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--card); border-bottom: 1px solid var(--line);
+    padding: 0 16px; display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; height: 54px;
+  }
+  .brand-group { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+  .tabs { display: flex; align-items: center; gap: 4px; height: 100%; }
+  .tab-btn {
+    display: inline-flex; align-items: center; gap: 6px; height: 100%;
+    padding: 0 14px; background: transparent; border: 0; border-bottom: 2px solid transparent;
+    color: var(--muted); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+    transition: all .15s ease;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .badge-counter {
+    background: var(--card-alt); color: var(--text); font-size: 11px; padding: 1px 7px;
+    border-radius: 999px; border: 1px solid var(--line);
+  }
+  .tab-btn.active .badge-counter { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+
+  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 80px; }
+
   .hidden { display: none !important; }
-  .actions { display: flex; align-items: center; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
-  button { border: 0; border-radius: 8px; padding: 10px 16px; font: inherit; font-weight: 600; cursor: pointer;
-    background: var(--accent); color: var(--accent-text); }
-  button:disabled { opacity: .6; cursor: progress; }
-  #toast { font-size: 14px; }
-  #toast.ok { color: var(--ok); } #toast.bad { color: var(--bad); }
-  .result h3 { margin: 16px 0 6px; font-size: 15px; }
-  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 14px; }
-  .kv dt { color: var(--muted); } .kv dd { margin: 0; overflow-wrap: anywhere; }
-  ul.links { list-style: none; padding: 0; margin: 0; font-size: 14px; }
-  ul.links li { padding: 6px 0; border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-  ul.links a { color: var(--accent); overflow-wrap: anywhere; }
-  .tag { font-size: 12px; border-radius: 6px; padding: 1px 6px; background: var(--off-bg); color: var(--off); white-space: nowrap; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-top: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+  .card h2 { font-size: 16px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  p.lead, .hint { color: var(--muted); margin: 0 0 12px; font-size: 13px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 16px; }
+  .chip { border-radius: 999px; padding: 3px 10px; font-size: 12px; background: var(--off-bg); color: var(--off); font-weight: 500; }
+  .chip.ok { background: var(--ok-bg); color: var(--ok); }
+  .chip.warn { background: var(--warn-bg); color: var(--warn); }
+  .chip.bad { background: var(--bad-bg); color: var(--bad); }
+
+  /* Mode Selectors */
+  .modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin: 12px 0; }
+  .mode { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; display: block; transition: border-color .15s ease; }
+  .mode input { margin-right: 6px; }
+  .mode small { display: block; color: var(--muted); margin-left: 22px; font-size: 12px; }
+  .mode:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 10px; }
+  label.f { display: block; font-size: 12.5px; color: var(--muted); }
+  label.f input, label.f select {
+    display: block; width: 100%; margin-top: 4px; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: 13.5px;
+  }
+
+  .actions { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  button.btn {
+    display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 14px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    background: var(--card-alt); color: var(--text); transition: all .15s ease;
+  }
+  button.btn:hover { border-color: var(--muted); }
+  button.btn-primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  button.btn-danger { background: var(--bad-bg); color: var(--bad); border-color: var(--bad-border); }
+  button.btn:disabled { opacity: .6; cursor: not-allowed; }
+
+  /* Inspector Styles */
+  .inspector-hero {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 16px 18px; border-radius: 12px; background: var(--card); border: 1px solid var(--line);
+    margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .hero-left { display: flex; align-items: center; gap: 14px; }
+  .hero-thumb { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid var(--line); background: var(--card-alt); }
+  .hero-title { font-size: 18px; font-weight: 700; margin: 0; line-height: 1.25; }
+  .hero-sub { color: var(--muted); font-size: 13px; margin-top: 3px; display: flex; align-items: center; gap: 8px; }
+
+  .pipeline-steps { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; position: relative; }
+  .step-node {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+    transition: border-color .15s ease;
+  }
+  .step-node.active-highlight { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .step-header {
+    display: flex; align-items: center; justify-content: space-between; padding: 12px 16px;
+    background: var(--card-alt); cursor: pointer; user-select: none;
+  }
+  .step-title-group { display: flex; align-items: center; gap: 10px; }
+  .step-badge {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 2px 8px; border-radius: 999px;
+  }
+  .badge-ok { background: var(--ok-bg); color: var(--ok); }
+  .badge-warning { background: var(--warn-bg); color: var(--warn); }
+  .badge-error { background: var(--bad-bg); color: var(--bad); }
+  .badge-skipped { background: var(--off-bg); color: var(--off); }
+  .badge-running { background: var(--warn-bg); color: var(--warn); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+  .step-body { padding: 16px; display: grid; gap: 12px; }
+  .in-out-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 700px) { .in-out-grid { grid-template-columns: 1fr; } }
+  .in-out-box { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+  .in-out-box h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.5px; display: flex; align-items: center; justify-content: space-between; }
+
+  /* Tables & Lists */
+  .prop-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .prop-table td { padding: 4px 6px; vertical-align: top; }
+  .prop-table td.k { color: var(--muted); width: 32%; font-weight: 500; }
+  .prop-table td.v { font-weight: 600; overflow-wrap: anywhere; }
+
+  .tag { font-size: 11.5px; border-radius: 6px; padding: 1px 7px; background: var(--off-bg); color: var(--off); display: inline-block; }
   .tag.ok { background: var(--ok-bg); color: var(--ok); }
-  pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow: auto; font-size: 12.5px; max-height: 420px; }
-  details summary { cursor: pointer; color: var(--muted); margin-top: 12px; }
+
+  pre.code-json {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+    padding: 10px; font-size: 12px; max-height: 280px; overflow: auto; margin: 6px 0 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  /* History Grid & Cards */
+  .history-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .search-input {
+    flex: 1; min-width: 200px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--card); color: var(--text); font: inherit; font-size: 13.5px;
+  }
+  .history-list { display: flex; flex-direction: column; gap: 10px; }
+  .history-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
+    gap: 14px; cursor: pointer; transition: all .15s ease;
+  }
+  .history-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+  .history-card.selected { border-color: var(--accent); background: var(--card-alt); }
+  .history-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .history-thumb { width: 50px; height: 50px; border-radius: 6px; object-fit: cover; background: var(--bg); border: 1px solid var(--line); flex-shrink: 0; }
+  .history-info { min-width: 0; }
+  .history-name { font-weight: 600; font-size: 14.5px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .history-meta { font-size: 12px; color: var(--muted); margin-top: 3px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  /* Gallery Modal */
+  .thumb-gallery { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .thumb-gallery img { width: 56px; height: 56px; border-radius: 6px; object-fit: cover; border: 1px solid var(--line); cursor: zoom-in; }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 48px 16px; color: var(--muted); }
+  .empty-state h3 { font-size: 16px; color: var(--text); margin: 0 0 6px; }
 </style>
 </head>
 <body>
+
+<header class="studio-nav">
+  <div class="brand-group">
+    <span>🔎 Tasador</span>
+    <span class="chip ok" id="nav-status-pill">Ready</span>
+  </div>
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="inspector">
+      <span>⚡ Pipeline Inspector</span>
+    </button>
+    <button class="tab-btn" data-tab="history">
+      <span>🕒 History</span>
+      <span class="badge-counter" id="history-badge">0</span>
+    </button>
+    <button class="tab-btn" data-tab="playground">
+      <span>🧪 Playground</span>
+    </button>
+    <button class="tab-btn" data-tab="settings">
+      <span>⚙️ Settings</span>
+    </button>
+  </nav>
+</header>
+
 <main>
-  <h1>Tasador</h1>
-  <p class="lead">Choose who recognises the item and who searches for links and prices. Changes apply immediately.</p>
-  <div class="chips" id="status"><span class="chip">Loading…</span></div>
 
-  <section class="card">
-    <h2>1. Recognition: what is it?</h2>
-    <div class="modes" id="vision-modes">
-      <label class="mode"><input type="radio" name="vmode" value="local">Local (Ollama)<small>Free. Photos stay on this computer.</small></label>
-      <label class="mode"><input type="radio" name="vmode" value="claude">Claude<small>Best quality. Paid per photo.</small></label>
-      <label class="mode"><input type="radio" name="vmode" value="cloud">Other cloud AI<small>OpenAI, Gemini, OpenRouter, Groq…</small></label>
-      <label class="mode"><input type="radio" name="vmode" value="off">Off<small>Barcodes and label text only.</small></label>
-    </div>
-    <div class="fields" data-for="local">
-      <label class="f">Model<select id="ollama-model"></select></label>
-      <label class="f">…or another model name<input id="ollama-other" placeholder="e.g. qwen2.5vl:7b"></label>
-    </div>
-    <p class="hint" data-for="local" id="ollama-hint"></p>
-    <div class="fields" data-for="claude">
-      <label class="f">Anthropic API key<input id="anthropic-key" type="password" autocomplete="off"></label>
-      <label class="f">Model<input id="claude-model" placeholder="claude-opus-5-5"></label>
-      <label class="f">Effort<select id="claude-effort">
-        <option value="low">low (fastest)</option><option value="medium">medium</option><option value="high">high</option>
-        <option value="xhigh">xhigh</option><option value="max">max (slowest)</option></select></label>
-    </div>
-    <div class="fields" data-for="cloud">
-      <label class="f">Provider<select id="cloud-preset"></select></label>
-      <label class="f">Model (one that reads images)<input id="cloud-model" placeholder="the provider's model name"></label>
-      <label class="f">API key<input id="cloud-key" type="password" autocomplete="off"></label>
-      <label class="f" id="cloud-url-box">Server address<input id="cloud-url" placeholder="https://…/v1"></label>
+  <!-- TAB 1: PIPELINE INSPECTOR -->
+  <section id="tab-inspector">
+    <div id="inspector-content">
+      <div class="empty-state" id="inspector-empty">
+        <h3>No execution selected</h3>
+        <p>Run a test identification in the Playground or send photos via Takient / API to inspect the live execution trace.</p>
+        <button class="btn btn-primary" onclick="switchTab('playground')">Try a photo in Playground</button>
+      </div>
+      <div id="inspector-data" class="hidden">
+        <!-- Rendered dynamically via renderInspector() -->
+      </div>
     </div>
   </section>
 
-  <section class="card">
-    <h2>2. Links and prices: web search</h2>
-    <div class="modes">
-      <label class="mode"><input type="radio" name="smode" value="searxng">Local search (SearXNG)<small>Free. Needs Docker Desktop.</small></label>
-      <label class="mode"><input type="radio" name="smode" value="brave">Brave Search<small>API key, free tier available.</small></label>
-      <label class="mode"><input type="radio" name="smode" value="anthropic">Claude web search<small>Uses the Anthropic key. Paid.</small></label>
-      <label class="mode"><input type="radio" name="smode" value="none">Off<small>No links, no prices.</small></label>
+  <!-- TAB 2: EXECUTION HISTORY -->
+  <section id="tab-history" class="hidden">
+    <div class="history-toolbar">
+      <input type="search" class="search-input" id="history-search" placeholder="Search past runs by item, brand, model or status…">
+      <div class="actions" style="margin-top:0">
+        <button class="btn" id="history-refresh-btn">🔄 Refresh</button>
+        <button class="btn btn-danger" id="history-clear-btn">🗑️ Clear History</button>
+      </div>
     </div>
-    <p class="hint" data-for-s="searxng">
-      <strong>What is local search?</strong> SearXNG is a free, open-source search engine that runs on this computer
-      inside Docker. It does not have its own index: it asks Google, Bing, Brave and DuckDuckGo for you and combines
-      their results. So it needs no account or API key, and nothing about you is sent except the search text
-      (for example "Pioneer DJM-900NXS2 cena"). Your photos never leave this computer.
-    </p>
-    <p class="hint" data-for-s="searxng" id="searxng-hint"></p>
-    <div class="fields" data-for-s="brave"><label class="f">Brave Search API key<input id="brave-key" type="password" autocomplete="off"></label></div>
-    <div class="fields" data-for-s="anthropic"><label class="f">Anthropic API key (shared with recognition)<input id="anthropic-key-2" type="password" autocomplete="off"></label></div>
+    <div id="history-container" class="history-list">
+      <div class="empty-state">
+        <p>Loading history…</p>
+      </div>
+    </div>
   </section>
 
-  <section class="card">
-    <h2>3. Advanced</h2>
+  <!-- TAB 3: PLAYGROUND (TRY IT) -->
+  <section id="tab-playground" class="card" style="margin-top:0">
+    <h2>🧪 Playground & Asset Valuation Test</h2>
+    <p class="hint">Upload one or more photos of an asset or equipment label to run through the entire pipeline and immediately trace all intermediate steps.</p>
+
+    <div class="fields" style="margin-top:14px">
+      <label class="f">Photos (one or multiple angles)<input id="photos" type="file" accept="image/*" multiple></label>
+      <label class="f">Target Currency<select id="currency"><option selected>PLN</option><option>EUR</option><option>USD</option><option>GBP</option><option>CZK</option></select></label>
+      <label class="f">Country Code<input id="country" value="PL" maxlength="2"></label>
+      <label class="f">Language / Locale<input id="locale" value="pl" maxlength="5"></label>
+    </div>
     <div class="fields">
-      <label class="f">Shop pages to open and check (0–20)<input id="verify-pages" type="number" min="0" max="20" placeholder="8"></label>
-      <label class="f">Photos the AI looks at (0 = automatic)<input id="max-images" type="number" min="0" max="8" placeholder="0"></label>
+      <label class="f">Task Hint (optional)<input id="task-hint" placeholder="e.g. stage light, audio mixer, DJ gear"></label>
+      <label class="f" style="display:flex; align-items:center; gap:8px; margin-top:24px; cursor:pointer">
+        <input type="checkbox" id="search-prices-toggle" checked style="width:auto; margin:0">
+        <span style="color:var(--text); font-weight:500">Search web for prices and shop links</span>
+      </label>
     </div>
-    <div class="actions">
-      <button id="save">Save and apply</button><span id="toast"></span>
+
+    <div class="actions" style="margin-top:20px">
+      <button class="btn btn-primary" id="identify">⚡ Run Pipeline & Inspect</button>
+      <span id="identify-status" class="hint" style="margin:0"></span>
     </div>
-    <p class="hint" id="env-hint"></p>
   </section>
 
-  <section class="card">
-    <h2>Try it</h2>
-    <p class="hint">Photos of one item, from one or more angles. A close-up of the label helps most.</p>
-    <div class="fields" style="margin-top:12px">
-      <label class="f">Photos<input id="photos" type="file" accept="image/*" multiple></label>
-      <label class="f">Currency<select id="currency"><option>PLN</option><option>EUR</option><option>USD</option><option>GBP</option><option>CZK</option></select></label>
-      <label class="f">Country<input id="country" value="PL" maxlength="2"></label>
-      <label class="f">Language<input id="locale" value="pl" maxlength="5"></label>
-    </div>
-    <div class="actions"><button id="identify">Identify</button><span id="identify-status" class="hint"></span></div>
-    <div id="result" class="result"></div>
+  <!-- TAB 4: SETTINGS -->
+  <section id="tab-settings" class="hidden">
+    <div class="chips" id="status"><span class="chip">Loading settings…</span></div>
+
+    <section class="card" style="margin-top:0">
+      <h2>1. Recognition: what is it?</h2>
+      <div class="modes" id="vision-modes">
+        <label class="mode"><input type="radio" name="vmode" value="local">Local (Ollama)<small>Free. Photos stay on this computer.</small></label>
+        <label class="mode"><input type="radio" name="vmode" value="claude">Claude<small>Best quality. Paid per photo.</small></label>
+        <label class="mode"><input type="radio" name="vmode" value="cloud">Other cloud AI<small>OpenAI, Gemini, OpenRouter, Groq…</small></label>
+        <label class="mode"><input type="radio" name="vmode" value="off">Off<small>Barcodes and label text only.</small></label>
+      </div>
+      <div class="fields" data-for="local">
+        <label class="f">Model<select id="ollama-model"></select></label>
+        <label class="f">…or another model name<input id="ollama-other" placeholder="e.g. qwen2.5vl:7b"></label>
+      </div>
+      <p class="hint" data-for="local" id="ollama-hint"></p>
+      <div class="fields" data-for="claude">
+        <label class="f">Anthropic API key<input id="anthropic-key" type="password" autocomplete="off"></label>
+        <label class="f">Model<input id="claude-model" placeholder="claude-opus-5-5"></label>
+        <label class="f">Effort<select id="claude-effort">
+          <option value="low">low (fastest)</option><option value="medium">medium</option><option value="high">high</option>
+          <option value="xhigh">xhigh</option><option value="max">max (slowest)</option></select></label>
+      </div>
+      <div class="fields" data-for="cloud">
+        <label class="f">Provider<select id="cloud-preset"></select></label>
+        <label class="f">Model (one that reads images)<input id="cloud-model" placeholder="the provider's model name"></label>
+        <label class="f">API key<input id="cloud-key" type="password" autocomplete="off"></label>
+        <label class="f" id="cloud-url-box">Server address<input id="cloud-url" placeholder="https://…/v1"></label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2. Links and prices: web search</h2>
+      <div class="modes">
+        <label class="mode"><input type="radio" name="smode" value="searxng">Local search (SearXNG)<small>Free. Needs Docker Desktop.</small></label>
+        <label class="mode"><input type="radio" name="smode" value="brave">Brave Search<small>API key, free tier available.</small></label>
+        <label class="mode"><input type="radio" name="smode" value="anthropic">Claude web search<small>Uses the Anthropic key. Paid.</small></label>
+        <label class="mode"><input type="radio" name="smode" value="none">Off<small>No links, no prices.</small></label>
+      </div>
+      <p class="hint" data-for-s="searxng">
+        <strong>What is local search?</strong> SearXNG is a free, open-source search engine running in Docker. Combines Google, Bing, Brave & DuckDuckGo without personal accounts.
+      </p>
+      <p class="hint" data-for-s="searxng" id="searxng-hint"></p>
+      <div class="fields" data-for-s="brave"><label class="f">Brave Search API key<input id="brave-key" type="password" autocomplete="off"></label></div>
+      <div class="fields" data-for-s="anthropic"><label class="f">Anthropic API key (shared with recognition)<input id="anthropic-key-2" type="password" autocomplete="off"></label></div>
+    </section>
+
+    <section class="card">
+      <h2>3. Advanced Engine Parameters</h2>
+      <div class="fields">
+        <label class="f">Shop pages to open and check (0–20)<input id="verify-pages" type="number" min="0" max="20" placeholder="8"></label>
+        <label class="f">Photos the AI looks at (0 = automatic)<input id="max-images" type="number" min="0" max="8" placeholder="0"></label>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" id="save">Save and apply</button><span id="toast"></span>
+      </div>
+      <p class="hint" id="env-hint"></p>
+    </section>
   </section>
+
 </main>
+
 <script>
 const UI_KEY = "__UI_KEY__";
 const $ = (id) => document.getElementById(id);
 let state = null;
+let currentRun = null;
+let historyItems = [];
+let activeTab = "inspector";
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -149,6 +335,299 @@ function el(tag, attrs = {}, ...children) {
 const radio = (name) => document.querySelector(`input[name=${name}]:checked`)?.value;
 function setRadio(name, value) { const r = document.querySelector(`input[name=${name}][value="${value}"]`); if (r) r.checked = true; }
 
+function switchTab(tabId) {
+  activeTab = tabId;
+  document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tabId));
+  $("tab-inspector").classList.toggle("hidden", tabId !== "inspector");
+  $("tab-history").classList.toggle("hidden", tabId !== "history");
+  $("tab-playground").classList.toggle("hidden", tabId !== "playground");
+  $("tab-settings").classList.toggle("hidden", tabId !== "settings");
+  if (tabId === "history") loadHistory();
+}
+document.querySelectorAll(".tab-btn").forEach((btn) => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
+
+// Format helpers
+function formatTime(isoStr) {
+  if (!isoStr) return "";
+  try {
+    const d = new Date(isoStr);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch (e) { return isoStr; }
+}
+
+function formatRelative(isoStr) {
+  if (!isoStr) return "";
+  const sec = Math.round((Date.now() - new Date(isoStr).getTime()) / 1000);
+  if (sec < 5) return "just now";
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  return `${hr}h ago`;
+}
+
+// ----------------- PIPELINE INSPECTOR RENDERING -----------------
+function renderInspector(run) {
+  currentRun = run;
+  const empty = $("inspector-empty"), dataBox = $("inspector-data");
+  if (!run) {
+    empty.classList.remove("hidden");
+    dataBox.classList.add("hidden");
+    return;
+  }
+  empty.classList.add("hidden");
+  dataBox.classList.remove("hidden");
+
+  const best = run.output?.best || run.best || {};
+  const itemName = best.name || "Unidentified Asset";
+  const confidence = Math.round((best.confidence || 0) * 100);
+  const statusCls = run.status === "completed" ? "badge-ok" : (run.status === "failed" ? "badge-error" : "badge-running");
+  const thumbUrl = (run.thumbnails && run.thumbnails[0]) || run.thumbnail;
+
+  // Hero Card
+  const heroNode = el("div", { class: "inspector-hero" },
+    el("div", { class: "hero-left" },
+      thumbUrl ? el("img", { class: "hero-thumb", src: thumbUrl, alt: "Input preview" }) : el("div", { class: "hero-thumb" }),
+      el("div", {},
+        el("h3", { class: "hero-title" }, itemName),
+        el("div", { class: "hero-sub" },
+          el("span", { class: `step-badge ${statusCls}` }, run.status),
+          el("span", {}, `⚡ ${run.duration_ms || 0} ms`),
+          el("span", {}, `• ${formatTime(run.created_at)}`),
+          best.confidence ? el("span", { class: "tag ok" }, `${confidence}% confidence`) : ""
+        )
+      )
+    ),
+    el("div", { class: "actions", style: "margin-top:0" },
+      run.can_rerun ? el("button", { class: "btn btn-primary", onclick: `rerun('${run.id}')` }, "🔁 Re-run Pipeline") : ""
+    )
+  );
+
+  // Steps
+  const stepsContainer = el("div", { class: "pipeline-steps" });
+
+  const steps = run.steps || [];
+  if (!steps.length) {
+    stepsContainer.append(el("p", { class: "hint" }, "No detailed step traces recorded for this execution."));
+  } else {
+    steps.forEach((step, idx) => {
+      const stepBadgeClass = step.status === "ok" ? "badge-ok" : (step.status === "error" ? "badge-error" : (step.status === "warning" ? "badge-warning" : "badge-skipped"));
+
+      const inBox = el("div", { class: "in-out-box" },
+        el("h4", {}, "Inputs In"),
+        renderProps(step.inputs)
+      );
+
+      const outBox = el("div", { class: "in-out-box" },
+        el("h4", {}, "Outputs Out"),
+        renderProps(step.outputs)
+      );
+
+      const jsonDetails = el("details", { style: "margin-top:8px" },
+        el("summary", { style: "cursor:pointer; font-size:12px; color:var(--muted)" }, "Raw Step In/Out JSON"),
+        el("pre", { class: "code-json" }, JSON.stringify(step, null, 2))
+      );
+
+      const stepNode = el("div", { class: "step-node" },
+        el("div", { class: "step-header" },
+          el("div", { class: "step-title-group" },
+            el("span", { style: "font-weight:700; color:var(--muted); font-size:12px" }, `#${idx + 1}`),
+            el("span", { style: "font-weight:600; font-size:14px" }, step.title),
+            step.details ? el("span", { style: "color:var(--muted); font-size:12.5px" }, `— ${step.details}`) : ""
+          ),
+          el("div", { style: "display:flex; align-items:center; gap:8px" },
+            step.duration_ms ? el("span", { style: "font-size:12px; color:var(--muted)" }, `${step.duration_ms} ms`) : "",
+            el("span", { class: `step-badge ${stepBadgeClass}` }, step.status)
+          )
+        ),
+        el("div", { class: "step-body" },
+          el("div", { class: "in-out-grid" }, inBox, outBox),
+          step.warnings && step.warnings.length ? el("div", { class: "chip warn" }, `⚠️ ${step.warnings.join(", ")}`) : "",
+          jsonDetails
+        )
+      );
+      stepsContainer.append(stepNode);
+    });
+  }
+
+  // Final Output Synthesis Card
+  const finalCard = el("section", { class: "card", style: "margin-top:16px" },
+    el("h2", {}, "📦 Synthesized Final Payload"),
+    el("details", { open: true },
+      el("summary", { style: "cursor:pointer; color:var(--muted); margin-bottom:8px" }, "Response Details"),
+      el("pre", { class: "code-json", style: "max-height:400px" }, JSON.stringify(run.output || {}, null, 2))
+    )
+  );
+
+  dataBox.replaceChildren(heroNode, stepsContainer, finalCard);
+}
+
+function renderProps(obj) {
+  if (!obj || Object.keys(obj).length === 0) return el("p", { class: "hint", style: "margin:0" }, "None");
+  const table = el("table", { class: "prop-table" });
+  for (const [k, v] of Object.entries(obj)) {
+    let displayVal = "";
+    if (v === null || v === undefined) displayVal = "–";
+    else if (typeof v === "object") displayVal = Array.isArray(v) ? `[${v.length} item(s)]` : JSON.stringify(v);
+    else displayVal = String(v);
+    table.append(el("tr", {}, el("td", { class: "k" }, k), el("td", { class: "v" }, displayVal)));
+  }
+  return table;
+}
+
+// ----------------- HISTORY LOADING & RENDERING -----------------
+async function loadHistory() {
+  const container = $("history-container");
+  try {
+    const res = await fetch("/v1/activity/history");
+    historyItems = await res.json();
+    $("history-badge").textContent = historyItems.length;
+    renderHistoryList(historyItems);
+  } catch (err) {
+    container.replaceChildren(el("div", { class: "empty-state" }, el("p", {}, `Failed to load history: ${err.message}`)));
+  }
+}
+
+function renderHistoryList(items) {
+  const container = $("history-container");
+  const query = ($("history-search")?.value || "").toLowerCase().trim();
+  const filtered = items.filter((item) => {
+    if (!query) return true;
+    const name = (item.best?.name || "").toLowerCase();
+    const brand = (item.best?.brand || "").toLowerCase();
+    const model = (item.best?.model || "").toLowerCase();
+    const status = (item.status || "").toLowerCase();
+    return name.includes(query) || brand.includes(query) || model.includes(query) || status.includes(query);
+  });
+
+  if (!filtered.length) {
+    container.replaceChildren(el("div", { class: "empty-state" },
+      el("h3", {}, query ? "No matching executions" : "No history recorded"),
+      el("p", {}, query ? "Try clearing your search query." : "Upload photos in the Playground or send requests to /v1/identify.")
+    ));
+    return;
+  }
+
+  container.replaceChildren(...filtered.map((item) => {
+    const itemName = item.best?.name || "Unidentified Asset";
+    const statusCls = item.status === "completed" ? "badge-ok" : (item.status === "failed" ? "badge-error" : "badge-running");
+    const isSelected = currentRun && currentRun.id === item.id;
+
+    const card = el("div", { class: `history-card ${isSelected ? "selected" : ""}`, onclick: () => inspectRun(item.id) },
+      el("div", { class: "history-left" },
+        item.thumbnail ? el("img", { class: "history-thumb", src: item.thumbnail }) : el("div", { class: "history-thumb" }),
+        el("div", { class: "history-info" },
+          el("h4", { class: "history-name" }, itemName),
+          el("div", { class: "history-meta" },
+            el("span", { class: `step-badge ${statusCls}` }, item.status),
+            el("span", {}, `⚡ ${item.duration_ms || 0} ms`),
+            el("span", {}, `• ${formatRelative(item.created_at)}`),
+            item.best?.confidence ? el("span", { class: "tag ok" }, `${Math.round(item.best.confidence * 100)}%`) : "",
+            item.provider?.vision ? el("span", { class: "tag" }, item.provider.vision) : ""
+          )
+        )
+      ),
+      el("div", { class: "actions", style: "margin-top:0" },
+        el("button", { class: "btn", onclick: (e) => { e.stopPropagation(); inspectRun(item.id); } }, "Inspect Trace ⚡"),
+        item.can_rerun ? el("button", { class: "btn", onclick: (e) => { e.stopPropagation(); rerun(item.id); } }, "🔁 Re-run") : ""
+      )
+    );
+    return card;
+  }));
+}
+
+async function inspectRun(runId) {
+  try {
+    const res = await fetch(`/v1/activity/${runId}`);
+    if (!res.ok) throw new Error("Could not fetch execution detail");
+    const detail = await res.json();
+    renderInspector(detail);
+    switchTab("inspector");
+  } catch (err) {
+    alert(`Could not load trace: ${err.message}`);
+  }
+}
+
+async function rerun(runId) {
+  const navStatus = $("nav-status-pill");
+  navStatus.textContent = "Re-running…";
+  navStatus.className = "chip warn";
+  try {
+    const res = await fetch(`/v1/activity/${runId}/rerun`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail));
+    await loadHistory();
+    if (historyItems.length) {
+      await inspectRun(historyItems[0].id);
+    }
+    navStatus.textContent = "Ready";
+    navStatus.className = "chip ok";
+  } catch (err) {
+    alert(`Re-run failed: ${err.message}`);
+    navStatus.textContent = "Error";
+    navStatus.className = "chip bad";
+  }
+}
+
+async function clearHistory() {
+  if (!confirm("Clear all execution traces from history?")) return;
+  try {
+    await fetch("/v1/activity/history", { method: "DELETE" });
+    currentRun = null;
+    renderInspector(null);
+    await loadHistory();
+  } catch (err) {
+    alert(`Clear failed: ${err.message}`);
+  }
+}
+
+$("history-clear-btn").addEventListener("click", clearHistory);
+$("history-refresh-btn").addEventListener("click", loadHistory);
+$("history-search").addEventListener("input", () => renderHistoryList(historyItems));
+
+// ----------------- PLAYGROUND (TRY IT) -----------------
+async function identify() {
+  const files = $("photos").files, status = $("identify-status");
+  if (!files.length) { status.textContent = "Choose at least one photo."; return; }
+  const form = new FormData();
+  for (const file of files) form.append("images", file);
+  form.append("context", JSON.stringify({
+    currency: $("currency").value,
+    country: $("country").value.trim().toUpperCase() || null,
+    locale: $("locale").value.trim() || "en",
+    hint: $("task-hint").value.trim() || null,
+    search_prices: $("search-prices-toggle").checked,
+  }));
+
+  $("identify").disabled = true;
+  status.textContent = "Running pipeline…";
+  $("nav-status-pill").textContent = "Processing…";
+  $("nav-status-pill").className = "chip warn";
+
+  try {
+    const response = await fetch("/v1/identify", { method: "POST", body: form });
+    const data = await response.json();
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail));
+    status.textContent = "Done!";
+    $("nav-status-pill").textContent = "Ready";
+    $("nav-status-pill").className = "chip ok";
+
+    // Refresh history and inspect the newly generated run
+    await loadHistory();
+    if (historyItems.length) {
+      await inspectRun(historyItems[0].id);
+    }
+  } catch (error) {
+    status.textContent = `Failed: ${error.message}`;
+    $("nav-status-pill").textContent = "Error";
+    $("nav-status-pill").className = "chip bad";
+  } finally {
+    $("identify").disabled = false;
+  }
+}
+$("identify").addEventListener("click", identify);
+
+// ----------------- SETTINGS CONFIGURATION -----------------
 function showModes() {
   const v = radio("vmode"), s = radio("smode");
   document.querySelectorAll("[data-for]").forEach((n) => n.classList.toggle("hidden", n.dataset.for !== v));
@@ -156,12 +635,12 @@ function showModes() {
   $("cloud-url-box").classList.toggle("hidden", $("cloud-preset").value !== "openai-compatible");
 }
 
-function render() {
+function renderSettings() {
   const { active, values, secrets, ollama, searxng, presets, env_file } = state;
   const chips = [
     [`Recognition: ${active.vision || "off"}`, active.vision ? "ok" : "warn"],
     [`Search: ${active.search || "off"}`, active.search ? "ok" : "warn"],
-    [`Ollama: ${ollama.running ? `running, ${ollama.models.length} vision model(s)` : "not running"}`, ollama.running ? "ok" : ""],
+    [`Ollama: ${ollama.running ? `running, ${ollama.models.length} model(s)` : "not running"}`, ollama.running ? "ok" : ""],
     [`SearXNG: ${searxng.reachable ? "running" : "not running"}`, searxng.reachable ? "ok" : ""],
     [`Label text: ${active.ocr ? "on" : "off"}`, active.ocr ? "ok" : ""],
     [`Barcodes: ${active.barcode ? "on" : "off"}`, active.barcode ? "ok" : ""],
@@ -179,8 +658,8 @@ function render() {
   $("ollama-model").replaceChildren(...(ollama.models.length ? ollama.models : ["(no vision model installed)"]).map((m) => el("option", { value: m }, m)));
   if (ollama.models.includes(model)) $("ollama-model").value = model; else if (model && vmode === "local") $("ollama-other").value = model;
   $("ollama-hint").textContent = !ollama.running ? "Ollama is not running: start it, then reload this page."
-    : !ollama.models.length ? "No installed model can read images. In a terminal run: ollama pull qwen3.5:2b (4 GB GPU) or ollama pull qwen2.5vl:7b (8 GB GPU / 16 GB RAM)."
-    : "Models installed in Ollama that can read images, best first.";
+    : !ollama.models.length ? "No installed model can read images. In terminal: ollama pull qwen2.5vl:7b"
+    : "Models installed in Ollama that can read images.";
 
   $("claude-model").value = vmode === "claude" ? model : "";
   $("claude-effort").value = values.TASADOR_VISION_EFFORT || "medium";
@@ -196,11 +675,11 @@ function render() {
   const activeSearch = active.search || "";
   setRadio("smode", sp !== "auto" ? sp : activeSearch.startsWith("searxng") ? "searxng" : activeSearch.startsWith("brave") ? "brave" : activeSearch.startsWith("anthropic") ? "anthropic" : "none");
   $("searxng-hint").textContent = searxng.reachable ? `Running at ${searxng.url}.`
-    : `Not running at ${searxng.url}. Start Docker Desktop and run Tasador.bat again (or: docker compose --profile local up -d searxng).`;
+    : `Not running at ${searxng.url}. Start Docker Desktop and run: docker compose --profile local up -d searxng`;
 
   $("verify-pages").value = values.TASADOR_VERIFY_PAGES || "";
   $("max-images").value = values.TASADOR_VISION_MAX_IMAGES || "";
-  $("env-hint").textContent = env_file ? `Saved to ${env_file}.` : "Changes apply until the engine stops (no .env file configured).";
+  $("env-hint").textContent = env_file ? `Saved to ${env_file}.` : "Changes apply until engine stops.";
   showModes();
 }
 
@@ -234,13 +713,13 @@ function collectChanges() {
   return c;
 }
 
-async function load() {
+async function loadSettings() {
   const response = await fetch("/ui/state");
   state = await response.json();
-  render();
+  renderSettings();
 }
 
-async function save() {
+async function saveSettings() {
   const toast = $("toast");
   $("save").disabled = true; toast.className = ""; toast.textContent = "Saving…";
   try {
@@ -250,63 +729,43 @@ async function save() {
     });
     const body = await response.json();
     if (!response.ok) throw new Error(typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail));
-    state = body; render();
+    state = body; renderSettings();
     toast.className = "ok"; toast.textContent = "Saved. The engine is using the new settings.";
   } catch (error) {
     toast.className = "bad"; toast.textContent = `Not saved: ${error.message}`;
   } finally { $("save").disabled = false; }
 }
 
-function linkList(items, describe) {
-  if (!items.length) return el("p", { class: "hint" }, "None found.");
-  return el("ul", { class: "links" }, ...items.map((item) => {
-    const verified = item.verified === "gtin" || item.verified === "model";
-    return el("li", {}, el("span", { class: `tag ${verified ? "ok" : ""}` }, verified ? `confirmed (${item.verified})` : item.verified),
-      ...describe(item), el("a", { href: item.url, target: "_blank", rel: "noopener noreferrer" }, item.title || item.url));
-  }));
-}
-const range = (r, cur) => (r ? `${r.min.toLocaleString()}–${r.max.toLocaleString()} ${cur} (median ${r.median.toLocaleString()}, ${r.count} offer${r.count > 1 ? "s" : ""})` : "–");
+document.addEventListener("change", (event) => {
+  if (event.target.name === "vmode" || event.target.name === "smode" || event.target.id === "cloud-preset") showModes();
+});
+$("save").addEventListener("click", saveSettings);
 
-function showResult(data) {
-  const b = data.best, p = data.price;
-  const rows = [["Name", b.name], ["Brand", b.brand], ["Model", b.model], ["Type", b.type], ["Barcode (GTIN)", b.gtin],
-    ["Serial", b.serial_number], ["Confidence", `${Math.round((b.confidence || 0) * 100)}%`], ["Evidence", (b.evidence || []).join(", ")]];
-  $("result").replaceChildren(
-    el("h3", {}, "Identification"),
-    el("dl", { class: "kv" }, ...rows.flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v ?? "–")])),
-    el("h3", {}, `Price${p.verified_only ? " (confirmed on shop pages)" : ""}`),
-    el("dl", { class: "kv" }, el("dt", {}, "New"), el("dd", {}, range(p.new, p.currency)), el("dt", {}, "Used"), el("dd", {}, range(p.used, p.currency))),
-    el("h3", {}, "Official pages"), linkList(data.links.official, () => []),
-    el("h3", {}, "Manuals, specs, reviews"), linkList(data.links.reference, (l) => [el("span", { class: "tag" }, l.kind)]),
-    el("h3", {}, "Where to buy"), linkList(data.links.purchase, (l) => [
-      el("span", { class: "tag" }, l.page === "search" ? "browse" : l.condition),
-      ...(l.price ? [el("strong", {}, `${l.price.toLocaleString()} ${l.currency || ""}`)] : [])]),
-    ...(data.warnings.length ? [el("h3", {}, "Warnings"), el("ul", {}, ...data.warnings.map((w) => el("li", {}, w)))] : []),
-    el("p", { class: "hint" }, `Took ${(data.timings_ms.total / 1000).toFixed(1)} s · ${data.provider.vision || "no recognition"} · ${data.provider.search || "no search"}`),
-    el("details", {}, el("summary", {}, "Raw JSON"), el("pre", {}, JSON.stringify(data, null, 2))),
-  );
-}
-
-async function identify() {
-  const files = $("photos").files, status = $("identify-status");
-  if (!files.length) { status.textContent = "Choose at least one photo."; return; }
-  const form = new FormData();
-  for (const file of files) form.append("images", file);
-  form.append("context", JSON.stringify({ currency: $("currency").value, country: $("country").value.trim().toUpperCase() || null, locale: $("locale").value.trim() || "en" }));
-  $("identify").disabled = true; status.textContent = "Working… local models can take up to a minute.";
+// Background auto-refresh for history (picks up external API requests)
+setInterval(async () => {
   try {
-    const response = await fetch("/v1/identify", { method: "POST", body: form });
-    const data = await response.json();
-    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail));
-    showResult(data); status.textContent = "";
-  } catch (error) { status.textContent = `Failed: ${error.message}`; }
-  finally { $("identify").disabled = false; }
-}
+    const res = await fetch("/v1/activity/history");
+    const newItems = await res.json();
+    if (newItems.length !== historyItems.length) {
+      historyItems = newItems;
+      $("history-badge").textContent = historyItems.length;
+      if (activeTab === "history") renderHistoryList(historyItems);
+      // If currently on inspector with empty view, auto-load latest
+      if (!currentRun && historyItems.length) {
+        inspectRun(historyItems[0].id);
+      }
+    }
+  } catch (e) {}
+}, 2500);
 
-document.addEventListener("change", (event) => { if (event.target.name === "vmode" || event.target.name === "smode" || event.target.id === "cloud-preset") showModes(); });
-$("save").addEventListener("click", save);
-$("identify").addEventListener("click", identify);
-load().catch((error) => { $("status").replaceChildren(el("span", { class: "chip bad" }, `Could not load settings: ${error.message}`)); });
+// Initial Load
+Promise.all([loadSettings(), loadHistory()]).then(() => {
+  if (historyItems.length) {
+    inspectRun(historyItems[0].id);
+  }
+}).catch((err) => {
+  console.error("Initial load error:", err);
+});
 </script>
 </body>
 </html>
