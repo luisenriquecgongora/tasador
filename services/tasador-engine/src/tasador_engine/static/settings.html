@@ -34,10 +34,11 @@
   header.studio-nav {
     position: sticky; top: 0; z-index: 100;
     background: var(--card); border-bottom: 1px solid var(--line);
-    padding: 0 16px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 18px; display: flex; align-items: center; justify-content: space-between;
     gap: 12px; height: 54px;
   }
   .brand-group { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+  .brand-logo { display: inline-flex; align-items: center; gap: 6px; }
   .tabs { display: flex; align-items: center; gap: 4px; height: 100%; }
   .tab-btn {
     display: inline-flex; align-items: center; gap: 6px; height: 100%;
@@ -53,7 +54,7 @@
   }
   .tab-btn.active .badge-counter { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 
-  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 80px; }
+  main { max-width: 1440px; margin: 0 auto; padding: 18px 20px 80px; }
 
   .hidden { display: none !important; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-top: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
@@ -85,27 +86,117 @@
     border-radius: 8px; padding: 8px 14px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
     background: var(--card-alt); color: var(--text); transition: all .15s ease;
   }
+  button.btn-sm { padding: 5px 9px; font-size: 12px; border-radius: 6px; }
   button.btn:hover { border-color: var(--muted); }
   button.btn-primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
   button.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
   button.btn-danger { background: var(--bad-bg); color: var(--bad); border-color: var(--bad-border); }
   button.btn:disabled { opacity: .6; cursor: not-allowed; }
 
-  /* Inspector Styles */
+  /* ----------------- STUDIO SPLIT LAYOUT ----------------- */
+  .studio-split-container {
+    display: grid;
+    grid-template-columns: 360px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 960px) {
+    .studio-split-container {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Left Sidebar: Inspected Documents & Past Runs */
+  .studio-sidebar {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px; position: sticky; top: 68px; max-height: calc(100vh - 86px);
+    display: flex; flex-direction: column; box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  }
+  .sidebar-header { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .sidebar-title-row { display: flex; align-items: center; justify-content: space-between; }
+  .sidebar-title-row h3 { margin: 0; font-size: 14.5px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .sidebar-search-row input {
+    width: 100%; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); font: inherit; font-size: 13px;
+  }
+  .quick-dropzone {
+    border: 1px dashed var(--line); border-radius: 8px; padding: 10px; text-align: center;
+    font-size: 12px; color: var(--muted); cursor: pointer; transition: all .15s ease;
+    background: var(--card-alt); display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .quick-dropzone:hover, .quick-dropzone.dragover { border-color: var(--accent); color: var(--accent); background: var(--off-bg); }
+
+  .history-list {
+    overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px;
+    flex: 1; min-height: 140px;
+  }
+  .history-card {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;
+    cursor: pointer; transition: all .15s ease; user-select: none;
+  }
+  .history-card:hover { border-color: var(--muted); transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+  .history-card.selected {
+    border-color: var(--accent); background: var(--card-alt);
+    box-shadow: 0 0 0 1.5px var(--accent) inset, 0 2px 8px rgba(37, 99, 235, 0.12);
+  }
+  .history-card-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .history-thumb-wrap { position: relative; width: 48px; height: 48px; flex-shrink: 0; }
+  .history-thumb { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; background: var(--card); border: 1px solid var(--line); }
+  .history-page-badge {
+    position: absolute; bottom: -2px; right: -2px; background: rgba(0,0,0,0.8); color: #fff;
+    font-size: 9.5px; font-weight: 700; padding: 1px 4px; border-radius: 4px; line-height: 1;
+  }
+  .history-card-body { min-width: 0; flex: 1; }
+  .history-name { font-weight: 600; font-size: 13.5px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .history-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .history-card-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; border-top: 1px solid var(--line); padding-top: 6px; margin-top: 2px; }
+
+  /* Right Main Panel: Pipeline Inspector */
+  .studio-main-panel { min-width: 0; }
+
   .inspector-hero {
     display: flex; align-items: center; justify-content: space-between; gap: 16px;
     padding: 16px 18px; border-radius: 12px; background: var(--card); border: 1px solid var(--line);
-    margin-bottom: 16px; flex-wrap: wrap;
+    margin-bottom: 16px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.03);
   }
-  .hero-left { display: flex; align-items: center; gap: 14px; }
-  .hero-thumb { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid var(--line); background: var(--card-alt); }
+  .hero-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .hero-thumb { width: 68px; height: 68px; border-radius: 8px; object-fit: cover; border: 1px solid var(--line); background: var(--card-alt); flex-shrink: 0; }
   .hero-title { font-size: 18px; font-weight: 700; margin: 0; line-height: 1.25; }
-  .hero-sub { color: var(--muted); font-size: 13px; margin-top: 3px; display: flex; align-items: center; gap: 8px; }
+  .hero-sub { color: var(--muted); font-size: 13px; margin-top: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-  .pipeline-steps { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; position: relative; }
+  /* Inspected Document Gallery & Viewer */
+  .doc-gallery-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 18px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  }
+  .doc-gallery-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
+  }
+  .doc-gallery-header h3 { margin: 0; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .doc-gallery-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px;
+  }
+  .doc-page-item {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+    display: flex; flex-direction: column; transition: all .15s ease;
+  }
+  .doc-page-item:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+  .doc-page-img {
+    width: 100%; height: 190px; object-fit: contain; background: #0f172a; cursor: zoom-in;
+    display: block; transition: transform .15s ease;
+  }
+  .doc-page-img:hover { transform: scale(1.02); }
+  .doc-page-footer {
+    padding: 6px 10px; display: flex; align-items: center; justify-content: space-between;
+    font-size: 11.5px; color: var(--muted); background: var(--card-alt); border-top: 1px solid var(--line);
+  }
+
+  /* Pipeline Waterfall Steps */
+  .pipeline-steps { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
   .step-node {
     background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
-    transition: border-color .15s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
   }
   .step-node.active-highlight { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .step-header {
@@ -136,7 +227,7 @@
   .prop-table td.k { color: var(--muted); width: 32%; font-weight: 500; }
   .prop-table td.v { font-weight: 600; overflow-wrap: anywhere; }
 
-  .tag { font-size: 11.5px; border-radius: 6px; padding: 1px 7px; background: var(--off-bg); color: var(--off); display: inline-block; }
+  .tag { font-size: 11.5px; border-radius: 6px; padding: 1px 7px; background: var(--off-bg); color: var(--off); display: inline-block; font-weight: 500; }
   .tag.ok { background: var(--ok-bg); color: var(--ok); }
 
   pre.code-json {
@@ -145,29 +236,24 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
 
-  /* History Grid & Cards */
-  .history-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
-  .search-input {
-    flex: 1; min-width: 200px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line);
-    background: var(--card); color: var(--text); font: inherit; font-size: 13.5px;
+  /* Lightbox Modal */
+  .lightbox-modal {
+    position: fixed; inset: 0; z-index: 1000; background: rgba(0, 0, 0, 0.88);
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+    backdrop-filter: blur(4px);
   }
-  .history-list { display: flex; flex-direction: column; gap: 10px; }
-  .history-card {
-    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
-    padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
-    gap: 14px; cursor: pointer; transition: all .15s ease;
+  .lightbox-content {
+    position: relative; max-width: 92vw; max-height: 92vh; display: flex; flex-direction: column; align-items: center;
   }
-  .history-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
-  .history-card.selected { border-color: var(--accent); background: var(--card-alt); }
-  .history-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
-  .history-thumb { width: 50px; height: 50px; border-radius: 6px; object-fit: cover; background: var(--bg); border: 1px solid var(--line); flex-shrink: 0; }
-  .history-info { min-width: 0; }
-  .history-name { font-weight: 600; font-size: 14.5px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .history-meta { font-size: 12px; color: var(--muted); margin-top: 3px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-
-  /* Gallery Modal */
-  .thumb-gallery { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-  .thumb-gallery img { width: 56px; height: 56px; border-radius: 6px; object-fit: cover; border: 1px solid var(--line); cursor: zoom-in; }
+  .lightbox-content img {
+    max-width: 100%; max-height: 84vh; object-fit: contain; border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6); background: #000;
+  }
+  .lightbox-close {
+    position: absolute; top: -38px; right: 0; background: transparent; border: 0;
+    color: #fff; font-size: 26px; cursor: pointer; padding: 4px 8px; line-height: 1;
+  }
+  .lightbox-caption { color: #f1f5f9; font-size: 13.5px; margin-top: 10px; font-weight: 500; text-align: center; }
 
   /* Empty state */
   .empty-state { text-align: center; padding: 48px 16px; color: var(--muted); }
@@ -200,15 +286,12 @@
 
 <header class="studio-nav">
   <div class="brand-group">
-    <span>🔎 Tasador</span>
+    <span class="brand-logo">🔎 Tasador</span>
     <span class="chip ok" id="nav-status-pill">Ready</span>
   </div>
   <nav class="tabs">
     <button class="tab-btn active" data-tab="inspector">
-      <span>⚡ Pipeline Inspector</span>
-    </button>
-    <button class="tab-btn" data-tab="history">
-      <span>🕒 History</span>
+      <span>⚡ Studio & Traces</span>
       <span class="badge-counter" id="history-badge">0</span>
     </button>
     <button class="tab-btn" data-tab="playground">
@@ -225,49 +308,62 @@
 
 <main>
 
-  <!-- TAB 1: PIPELINE INSPECTOR -->
+  <!-- TAB 1: STUDIO & PIPELINE INSPECTOR (SIDE-BY-SIDE MASTER-DETAIL) -->
   <section id="tab-inspector">
-    <div id="inspector-content">
-      <div class="empty-state" id="inspector-empty">
-        <h3>No execution selected</h3>
-        <p>Run a test identification in the Playground or send photos via Takient / API to inspect the live execution trace.</p>
-        <button class="btn btn-primary" onclick="switchTab('playground')">Try a photo in Playground</button>
-      </div>
-      <div id="inspector-data" class="hidden">
-        <!-- Rendered dynamically via renderInspector() -->
-      </div>
+    <div class="studio-split-container">
+      <!-- LEFT SIDEBAR: Inspected Documents & Past Runs -->
+      <aside class="studio-sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-title-row">
+            <h3><span>📁 Inspected Documents</span></h3>
+            <div class="actions" style="margin:0; gap:4px">
+              <button class="btn btn-sm" id="history-refresh-btn" title="Refresh runs list">🔄</button>
+              <button class="btn btn-sm btn-danger" id="history-clear-btn" title="Clear all history">🗑️</button>
+            </div>
+          </div>
+          <div class="sidebar-search-row">
+            <input type="search" class="search-input" id="history-search" placeholder="Search by name, model, brand…">
+          </div>
+          <div class="quick-dropzone" id="quick-dropzone">
+            <span>⚡ Drop photo or invoice PDF here</span>
+            <input type="file" id="quick-file-input" accept="image/*,application/pdf" multiple style="display:none">
+          </div>
+        </div>
+        <div id="history-container" class="history-list">
+          <div class="empty-state" style="padding:24px 8px">
+            <p>Loading documents…</p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- RIGHT PANEL: Inspected Document Viewer & Pipeline Inspector -->
+      <section class="studio-main-panel">
+        <div class="empty-state" id="inspector-empty">
+          <div style="font-size:36px; margin-bottom:12px">⚡</div>
+          <h3>Select a document to inspect its pipeline trace</h3>
+          <p>Choose an execution from the left panel, or test an asset / invoice in the Playground.</p>
+          <button class="btn btn-primary" onclick="switchTab('playground')">Open Playground 🧪</button>
+        </div>
+        <div id="inspector-data" class="hidden">
+          <!-- Rendered dynamically via renderInspector() -->
+        </div>
+      </section>
     </div>
   </section>
 
-  <!-- TAB 2: EXECUTION HISTORY -->
-  <section id="tab-history" class="hidden">
-    <div class="history-toolbar">
-      <input type="search" class="search-input" id="history-search" placeholder="Search past runs by item, brand, model or status…">
-      <div class="actions" style="margin-top:0">
-        <button class="btn" id="history-refresh-btn">🔄 Refresh</button>
-        <button class="btn btn-danger" id="history-clear-btn">🗑️ Clear History</button>
-      </div>
-    </div>
-    <div id="history-container" class="history-list">
-      <div class="empty-state">
-        <p>Loading history…</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- TAB 3: PLAYGROUND (TRY IT) -->
-  <section id="tab-playground" class="card" style="margin-top:0">
+  <!-- TAB 2: PLAYGROUND (TRY IT) -->
+  <section id="tab-playground" class="card hidden" style="margin-top:0">
     <h2>🧪 Playground & Asset Valuation Test</h2>
-    <p class="hint">Upload one or more photos of an asset or equipment label to run through the entire pipeline and immediately trace all intermediate steps.</p>
+    <p class="hint">Upload one or more photos of an asset or invoice PDF to run through the entire pipeline and immediately trace all intermediate steps.</p>
 
     <div class="fields" style="margin-top:14px">
-      <label class="f">Photos (one or multiple angles)<input id="photos" type="file" accept="image/*" multiple></label>
+      <label class="f">Photos or Invoice PDF<input id="photos" type="file" accept="image/*,application/pdf" multiple></label>
       <label class="f">Target Currency<select id="currency"><option selected>PLN</option><option>EUR</option><option>USD</option><option>GBP</option><option>CZK</option></select></label>
       <label class="f">Country Code<input id="country" value="PL" maxlength="2"></label>
       <label class="f">Language / Locale<input id="locale" value="pl" maxlength="5"></label>
     </div>
     <div class="fields">
-      <label class="f">Task Hint (optional)<input id="task-hint" placeholder="e.g. stage light, audio mixer, DJ gear"></label>
+      <label class="f">Task Hint (optional)<input id="task-hint" placeholder="e.g. stage light, audio mixer, DJ gear, invoice"></label>
       <label class="f" style="display:flex; align-items:center; gap:8px; margin-top:24px; cursor:pointer">
         <input type="checkbox" id="search-prices-toggle" checked style="width:auto; margin:0">
         <span style="color:var(--text); font-weight:500">Search web for prices and shop links</span>
@@ -280,11 +376,11 @@
     </div>
   </section>
 
-  <!-- TAB 4: ARCHITECTURE -->
+  <!-- TAB 3: ARCHITECTURE -->
   <section id="tab-architecture" class="hidden">
     <div class="card" style="margin-top:0">
       <h2>🗺️ Architecture & Multimodal Pipeline DAG</h2>
-      <p class="hint">How Tasador transforms raw pixel photos into verified product keys, market prices, and structured entity JSON.</p>
+      <p class="hint">How Tasador transforms raw pixel photos and PDF invoices into verified product keys, market prices, and structured entity JSON.</p>
 
       <div class="arch-grid" id="arch-components">
         <div class="arch-box">
@@ -317,10 +413,10 @@
         <div class="arch-content">
           <div class="arch-header">
             <span class="arch-title">Stage 1: Ingestion & Normalization</span>
-            <span class="tag ok">images.py</span>
+            <span class="tag ok">images.py · pypdfium2</span>
           </div>
           <p class="arch-desc">
-            Decodes incoming files (JPEG, PNG, HEIC from iPhones). Normalizes EXIF orientation, strips GPS coordinates & device metadata for privacy, and downscales to max 1568 px.
+            Decodes incoming files (JPEG, PNG, HEIC from iPhones, multi-page PDF invoices). Normalizes EXIF orientation, strips GPS coordinates & device metadata for privacy, and downscales to max 1568 px.
           </p>
         </div>
       </div>
@@ -336,7 +432,7 @@
             <span class="tag ok">zxingcpp (C++) · ~15ms</span>
           </div>
           <p class="arch-desc">
-            Direct pixel scanner checks for EAN-13, UPC-A, Code-128, and QR codes across all photos. Detects manufacturer GTIN barcodes with mathematical checksum verification.
+            Direct pixel scanner checks for EAN-13, UPC-A, Code-128, and QR codes across all photos and PDF pages. Detects manufacturer GTIN barcodes with mathematical checksum verification.
           </p>
         </div>
       </div>
@@ -352,7 +448,7 @@
             <span class="tag ok">ONNX Runtime · ~350ms</span>
           </div>
           <p class="arch-desc">
-            Runs deep learning OCR model locally to extract text lines from equipment chassis, serial plates, voltage markings, and labels. Groups text per photo and merges shared vocabulary.
+            Runs deep learning OCR model locally to extract text lines from equipment chassis, serial plates, invoice line items, and VAT totals. Groups text per photo and merges shared vocabulary.
           </p>
         </div>
       </div>
@@ -365,7 +461,7 @@
         <div class="arch-content">
           <div class="arch-header">
             <span class="arch-title">Stage 4: Multimodal Vision AI</span>
-            <span class="tag ok">Ollama (Local) / Claude (Cloud)</span>
+            <span class="tag ok">Ollama / Claude / OpenAI</span>
           </div>
           <p class="arch-desc">
             Multimodal LLM synthesizes visual geometry with OCR nameplate text and barcodes. Identifies exact Brand, Model, Equipment Type, Serial Number, Confidence %, and generates targeted search queries.
@@ -407,7 +503,7 @@
     </div>
   </section>
 
-  <!-- TAB 5: SETTINGS -->
+  <!-- TAB 4: SETTINGS -->
   <section id="tab-settings" class="hidden">
     <div class="chips" id="status"><span class="chip">Loading settings…</span></div>
 
@@ -470,6 +566,15 @@
 
 </main>
 
+<!-- Lightbox Modal for Full Resolution Document Viewing -->
+<div id="lightbox-modal" class="lightbox-modal hidden" onclick="closeLightbox()">
+  <div class="lightbox-content" onclick="event.stopPropagation()">
+    <button class="lightbox-close" onclick="closeLightbox()" title="Close (Esc)">✕</button>
+    <img id="lightbox-img" src="" alt="Full view">
+    <div id="lightbox-caption" class="lightbox-caption"></div>
+  </div>
+</div>
+
 <script>
 const UI_KEY = "__UI_KEY__";
 const $ = (id) => document.getElementById(id);
@@ -501,14 +606,15 @@ const radio = (name) => document.querySelector(`input[name=${name}]:checked`)?.v
 function setRadio(name, value) { const r = document.querySelector(`input[name=${name}][value="${value}"]`); if (r) r.checked = true; }
 
 function switchTab(tabId) {
+  // Support legacy or explicit switch to history by routing to inspector split-view
+  if (tabId === "history") tabId = "inspector";
   activeTab = tabId;
   document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tabId));
   $("tab-inspector").classList.toggle("hidden", tabId !== "inspector");
-  $("tab-history").classList.toggle("hidden", tabId !== "history");
   $("tab-playground").classList.toggle("hidden", tabId !== "playground");
   $("tab-architecture").classList.toggle("hidden", tabId !== "architecture");
   $("tab-settings").classList.toggle("hidden", tabId !== "settings");
-  if (tabId === "history") loadHistory();
+  if (tabId === "inspector") loadHistory();
   if (tabId === "architecture") renderArchitecture();
 }
 document.querySelectorAll(".tab-btn").forEach((btn) => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
@@ -535,6 +641,26 @@ function renderArchitecture() {
   }
 }
 
+// Lightbox Modal functions
+function openLightbox(src, caption) {
+  const modal = $("lightbox-modal");
+  const img = $("lightbox-img");
+  const cap = $("lightbox-caption");
+  if (!modal || !img) return;
+  img.src = src;
+  if (cap) cap.textContent = caption || "";
+  modal.classList.remove("hidden");
+}
+
+function closeLightbox() {
+  const modal = $("lightbox-modal");
+  if (modal) modal.classList.add("hidden");
+}
+
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeLightbox();
+});
+
 // Format helpers
 function formatTime(isoStr) {
   if (!isoStr) return "";
@@ -555,7 +681,7 @@ function formatRelative(isoStr) {
   return `${hr}h ago`;
 }
 
-// ----------------- PIPELINE INSPECTOR RENDERING -----------------
+// ----------------- PIPELINE INSPECTOR RENDERING (RIGHT PANEL) -----------------
 function renderInspector(run) {
   currentRun = run;
   const empty = $("inspector-empty"), dataBox = $("inspector-data");
@@ -572,32 +698,83 @@ function renderInspector(run) {
   const confidence = Math.round((best.confidence || 0) * 100);
   const statusCls = run.status === "completed" ? "badge-ok" : (run.status === "failed" ? "badge-error" : "badge-running");
   const thumbUrl = (run.thumbnails && run.thumbnails[0]) || run.thumbnail;
+  const thumbnails = run.thumbnails || (run.thumbnail ? [run.thumbnail] : []);
+  const imagesMeta = run.input_summary?.images || [];
 
-  // Hero Card
+  // 1. Hero Card
   const heroNode = el("div", { class: "inspector-hero" },
     el("div", { class: "hero-left" },
-      thumbUrl ? el("img", { class: "hero-thumb", src: thumbUrl, alt: "Input preview" }) : el("div", { class: "hero-thumb" }),
-      el("div", {},
+      thumbUrl ? el("img", { class: "hero-thumb", src: thumbUrl, alt: "Input preview", onclick: () => openLightbox(thumbUrl, itemName) }) : el("div", { class: "hero-thumb" }),
+      el("div", { style: "min-width:0" },
         el("h3", { class: "hero-title" }, itemName),
         el("div", { class: "hero-sub" },
           el("span", { class: `step-badge ${statusCls}` }, run.status),
           el("span", {}, `⚡ ${run.duration_ms || 0} ms`),
           el("span", {}, `• ${formatTime(run.created_at)}`),
-          best.confidence ? el("span", { class: "tag ok" }, `${confidence}% confidence`) : ""
+          best.confidence ? el("span", { class: "tag ok" }, `${confidence}% confidence`) : "",
+          best.brand ? el("span", { class: "tag" }, `Brand: ${best.brand}`) : "",
+          best.model ? el("span", { class: "tag" }, `Model: ${best.model}`) : ""
         )
       )
     ),
     el("div", { class: "actions", style: "margin-top:0" },
-      run.can_rerun ? el("button", { class: "btn btn-primary", onclick: () => rerun(run.id) }, "🔁 Re-run Pipeline") : ""
+      el("button", { class: "btn btn-sm", onclick: () => copyJson(run.output || {}) }, "📋 Copy JSON"),
+      run.can_rerun ? el("button", { class: "btn btn-sm btn-primary", onclick: () => rerun(run.id) }, "🔁 Re-run Pipeline") : ""
     )
   );
 
-  // Steps
-  const stepsContainer = el("div", { class: "pipeline-steps" });
+  // 2. Inspected Document Gallery & Viewer Card
+  const docGalleryCard = el("section", { class: "doc-gallery-card" });
+  const pageCount = thumbnails.length || 1;
+  const ocrCount = run.output?.extracted?.ocr_text?.length || 0;
+  const barcodeCount = run.output?.extracted?.barcodes?.length || 0;
+  const linksCount = (run.output?.links?.purchase?.length || 0) + (run.output?.links?.official?.length || 0);
 
+  const docHeader = el("div", { class: "doc-gallery-header" },
+    el("h3", {},
+      el("span", {}, "📄"),
+      el("span", {}, `Inspected Document (${pageCount} page${pageCount > 1 ? "s" : ""})`)
+    ),
+    el("div", { style: "display:flex; align-items:center; gap:6px; flex-wrap:wrap" },
+      el("span", { class: "chip" }, `📝 ${ocrCount} text line${ocrCount === 1 ? "" : "s"}`),
+      barcodeCount ? el("span", { class: "chip ok" }, `🏷️ ${barcodeCount} barcode${barcodeCount === 1 ? "" : "s"}`) : "",
+      linksCount ? el("span", { class: "chip" }, `🌐 ${linksCount} link${linksCount === 1 ? "" : "s"}`) : ""
+    )
+  );
+
+  const galleryGrid = el("div", { class: "doc-gallery-grid" });
+  if (thumbnails.length) {
+    thumbnails.forEach((thumb, idx) => {
+      const meta = imagesMeta[idx] || {};
+      const dimStr = meta.width && meta.height ? `${meta.width} × ${meta.height} px` : "";
+      const caption = `Page ${idx + 1} of ${thumbnails.length}${dimStr ? ` (${dimStr})` : ""} — ${itemName}`;
+
+      const pageItem = el("div", { class: "doc-page-item" },
+        el("img", {
+          class: "doc-page-img",
+          src: thumb,
+          alt: `Page ${idx + 1}`,
+          title: "Click to zoom",
+          onclick: () => openLightbox(thumb, caption)
+        }),
+        el("div", { class: "doc-page-footer" },
+          el("span", { style: "font-weight:600" }, `Page ${idx + 1}`),
+          el("span", {}, dimStr || "Click to zoom 🔍")
+        )
+      );
+      galleryGrid.append(pageItem);
+    });
+  } else {
+    galleryGrid.append(el("p", { class: "hint", style: "margin:0" }, "No image previews available for this run."));
+  }
+
+  docGalleryCard.append(docHeader, galleryGrid);
+
+  // 3. Pipeline Steps Waterfall
+  const stepsContainer = el("div", { class: "pipeline-steps" });
   const steps = run.steps || [];
   if (!steps.length) {
-    stepsContainer.append(el("p", { class: "hint" }, "No detailed step traces recorded for this execution."));
+    stepsContainer.append(el("p", { class: "hint" }, "No intermediate step traces recorded for this execution."));
   } else {
     steps.forEach((step, idx) => {
       const stepBadgeClass = step.status === "ok" ? "badge-ok" : (step.status === "error" ? "badge-error" : (step.status === "warning" ? "badge-warning" : "badge-skipped"));
@@ -639,16 +816,19 @@ function renderInspector(run) {
     });
   }
 
-  // Final Output Synthesis Card
+  // 4. Final Output Synthesis Card
   const finalCard = el("section", { class: "card", style: "margin-top:16px" },
-    el("h2", {}, "📦 Synthesized Final Payload"),
+    el("div", { style: "display:flex; align-items:center; justify-content:space-between; margin-bottom:8px" },
+      el("h2", { style: "margin:0" }, "📦 Synthesized Final Payload"),
+      el("button", { class: "btn btn-sm", onclick: () => copyJson(run.output || {}) }, "📋 Copy")
+    ),
     el("details", { open: true },
-      el("summary", { style: "cursor:pointer; color:var(--muted); margin-bottom:8px" }, "Response Details"),
+      el("summary", { style: "cursor:pointer; color:var(--muted); margin-bottom:8px" }, "Full Response Entity JSON"),
       el("pre", { class: "code-json", style: "max-height:400px" }, JSON.stringify(run.output || {}, null, 2))
     )
   );
 
-  dataBox.replaceChildren(heroNode, stepsContainer, finalCard);
+  dataBox.replaceChildren(heroNode, docGalleryCard, stepsContainer, finalCard);
 }
 
 function renderProps(obj) {
@@ -664,7 +844,16 @@ function renderProps(obj) {
   return table;
 }
 
-// ----------------- HISTORY LOADING & RENDERING -----------------
+function copyJson(data) {
+  try {
+    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+    alert("Payload copied to clipboard!");
+  } catch (e) {
+    alert("Could not copy to clipboard");
+  }
+}
+
+// ----------------- HISTORY LOADING & RENDERING (LEFT SIDEBAR) -----------------
 async function loadHistory() {
   const container = $("history-container");
   try {
@@ -673,7 +862,7 @@ async function loadHistory() {
     $("history-badge").textContent = historyItems.length;
     renderHistoryList(historyItems);
   } catch (err) {
-    container.replaceChildren(el("div", { class: "empty-state" }, el("p", {}, `Failed to load history: ${err.message}`)));
+    container.replaceChildren(el("div", { class: "empty-state" }, el("p", {}, `Failed to load documents: ${err.message}`)));
   }
 }
 
@@ -690,9 +879,9 @@ function renderHistoryList(items) {
   });
 
   if (!filtered.length) {
-    container.replaceChildren(el("div", { class: "empty-state" },
-      el("h3", {}, query ? "No matching executions" : "No history recorded"),
-      el("p", {}, query ? "Try clearing your search query." : "Upload photos in the Playground or send requests to /v1/identify.")
+    container.replaceChildren(el("div", { class: "empty-state", style: "padding:24px 8px" },
+      el("h3", { style: "font-size:14px" }, query ? "No matching executions" : "No history recorded"),
+      el("p", { style: "font-size:12px" }, query ? "Try clearing your search query." : "Upload photos or invoice PDF to inspect.")
     ));
     return;
   }
@@ -701,24 +890,36 @@ function renderHistoryList(items) {
     const itemName = item.best?.name || "Unidentified Asset";
     const statusCls = item.status === "completed" ? "badge-ok" : (item.status === "failed" ? "badge-error" : "badge-running");
     const isSelected = currentRun && currentRun.id === item.id;
+    const pageCount = item.image_count || 1;
 
-    const card = el("div", { class: `history-card ${isSelected ? "selected" : ""}`, onclick: () => inspectRun(item.id) },
-      el("div", { class: "history-left" },
-        item.thumbnail ? el("img", { class: "history-thumb", src: item.thumbnail }) : el("div", { class: "history-thumb" }),
-        el("div", { class: "history-info" },
-          el("h4", { class: "history-name" }, itemName),
+    const card = el("div", {
+      class: `history-card ${isSelected ? "selected" : ""}`,
+      onclick: () => inspectRun(item.id)
+    },
+      el("div", { class: "history-card-top" },
+        el("div", { class: "history-thumb-wrap" },
+          item.thumbnail ? el("img", { class: "history-thumb", src: item.thumbnail, alt: "thumbnail" }) : el("div", { class: "history-thumb" }),
+          pageCount > 1 ? el("span", { class: "history-page-badge" }, `${pageCount}p`) : ""
+        ),
+        el("div", { class: "history-card-body" },
+          el("h4", { class: "history-name", title: itemName }, itemName),
           el("div", { class: "history-meta" },
             el("span", { class: `step-badge ${statusCls}` }, item.status),
             el("span", {}, `⚡ ${item.duration_ms || 0} ms`),
             el("span", {}, `• ${formatRelative(item.created_at)}`),
-            item.best?.confidence ? el("span", { class: "tag ok" }, `${Math.round(item.best.confidence * 100)}%`) : "",
-            item.provider?.vision ? el("span", { class: "tag" }, item.provider.vision) : ""
+            item.best?.confidence ? el("span", { class: "tag ok" }, `${Math.round(item.best.confidence * 100)}%`) : ""
           )
         )
       ),
-      el("div", { class: "actions", style: "margin-top:0" },
-        el("button", { class: "btn", onclick: (e) => { e.stopPropagation(); inspectRun(item.id); } }, "Inspect Trace ⚡"),
-        item.can_rerun ? el("button", { class: "btn", onclick: (e) => { e.stopPropagation(); rerun(item.id); } }, "🔁 Re-run") : ""
+      el("div", { class: "history-card-actions" },
+        el("button", {
+          class: "btn btn-sm",
+          onclick: (e) => { e.stopPropagation(); inspectRun(item.id); }
+        }, "Inspect Trace ⚡"),
+        item.can_rerun ? el("button", {
+          class: "btn btn-sm",
+          onclick: (e) => { e.stopPropagation(); rerun(item.id); }
+        }, "🔁 Re-run") : ""
       )
     );
     return card;
@@ -731,7 +932,12 @@ async function inspectRun(runId) {
     if (!res.ok) throw new Error("Could not fetch execution detail");
     const detail = await res.json();
     renderInspector(detail);
-    switchTab("inspector");
+    // Update card selection highlight in sidebar
+    document.querySelectorAll(".history-card").forEach((card) => card.classList.remove("selected"));
+    const selectedItem = historyItems.find((it) => it.id === runId);
+    if (selectedItem) {
+      renderHistoryList(historyItems);
+    }
   } catch (err) {
     alert(`Could not load trace: ${err.message}`);
   }
@@ -758,11 +964,6 @@ async function rerun(runId) {
   }
 }
 
-window.inspectRun = inspectRun;
-window.switchTab = switchTab;
-window.rerun = rerun;
-window.clearHistory = clearHistory;
-
 async function clearHistory() {
   if (!confirm("Clear all execution traces from history?")) return;
   try {
@@ -779,10 +980,56 @@ $("history-clear-btn").addEventListener("click", clearHistory);
 $("history-refresh-btn").addEventListener("click", loadHistory);
 $("history-search").addEventListener("input", () => renderHistoryList(historyItems));
 
+// Quick Dropzone Handler in Sidebar
+const quickDrop = $("quick-dropzone");
+const quickFileInput = $("quick-file-input");
+if (quickDrop && quickFileInput) {
+  quickDrop.addEventListener("click", () => quickFileInput.click());
+  quickFileInput.addEventListener("change", (e) => {
+    if (e.target.files?.length) runFiles(e.target.files);
+  });
+  quickDrop.addEventListener("dragover", (e) => { e.preventDefault(); quickDrop.classList.add("dragover"); });
+  quickDrop.addEventListener("dragleave", () => quickDrop.classList.remove("dragover"));
+  quickDrop.addEventListener("drop", (e) => {
+    e.preventDefault();
+    quickDrop.classList.remove("dragover");
+    if (e.dataTransfer?.files?.length) runFiles(e.dataTransfer.files);
+  });
+}
+
+async function runFiles(fileList) {
+  const form = new FormData();
+  for (const file of fileList) form.append("images", file);
+  form.append("context", JSON.stringify({
+    currency: "PLN", country: "PL", locale: "pl", search_prices: true
+  }));
+
+  const navStatus = $("nav-status-pill");
+  navStatus.textContent = "Processing…";
+  navStatus.className = "chip warn";
+
+  try {
+    const response = await fetch("/v1/identify", { method: "POST", body: form });
+    const data = await response.json();
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail));
+    navStatus.textContent = "Ready";
+    navStatus.className = "chip ok";
+
+    await loadHistory();
+    if (historyItems.length) {
+      await inspectRun(historyItems[0].id);
+    }
+  } catch (error) {
+    alert(`Identification failed: ${error.message}`);
+    navStatus.textContent = "Error";
+    navStatus.className = "chip bad";
+  }
+}
+
 // ----------------- PLAYGROUND (TRY IT) -----------------
 async function identify() {
   const files = $("photos").files, status = $("identify-status");
-  if (!files.length) { status.textContent = "Choose at least one photo."; return; }
+  if (!files.length) { status.textContent = "Choose at least one photo or PDF invoice."; return; }
   const form = new FormData();
   for (const file of files) form.append("images", file);
   form.append("context", JSON.stringify({
@@ -806,7 +1053,8 @@ async function identify() {
     $("nav-status-pill").textContent = "Ready";
     $("nav-status-pill").className = "chip ok";
 
-    // Refresh history and inspect the newly generated run
+    // Switch to Studio split view and inspect the newly generated run
+    switchTab("inspector");
     await loadHistory();
     if (historyItems.length) {
       await inspectRun(historyItems[0].id);
@@ -944,7 +1192,7 @@ setInterval(async () => {
     if (newItems.length !== historyItems.length) {
       historyItems = newItems;
       $("history-badge").textContent = historyItems.length;
-      if (activeTab === "history") renderHistoryList(historyItems);
+      renderHistoryList(historyItems);
       // If currently on inspector with empty view, auto-load latest
       if (!currentRun && historyItems.length) {
         inspectRun(historyItems[0].id);
@@ -952,6 +1200,14 @@ setInterval(async () => {
     }
   } catch (e) {}
 }, 2500);
+
+// Global Window functions
+window.inspectRun = inspectRun;
+window.switchTab = switchTab;
+window.rerun = rerun;
+window.clearHistory = clearHistory;
+window.openLightbox = openLightbox;
+window.closeLightbox = closeLightbox;
 
 // Initial Load
 Promise.all([loadSettings(), loadHistory()]).then(() => {

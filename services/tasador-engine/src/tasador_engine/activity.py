@@ -24,13 +24,13 @@ from .images import PreparedImage
 from .schemas import IdentifyContext, IdentifyResponse
 
 
-def make_thumbnail_b64(img: Image.Image, max_size: int = 140) -> str:
-    """Create a compact base64 JPEG thumbnail for fast UI previews."""
+def make_thumbnail_b64(img: Image.Image, max_size: int = 512, quality: int = 80) -> str:
+    """Create a high-quality base64 JPEG thumbnail for document viewer and UI previews."""
     try:
         thumb = img.copy()
         thumb.thumbnail((max_size, max_size))
         buf = io.BytesIO()
-        thumb.convert("RGB").save(buf, format="JPEG", quality=75, optimize=True)
+        thumb.convert("RGB").save(buf, format="JPEG", quality=quality, optimize=True)
         return f"data:image/jpeg;base64,{base64.b64encode(buf.getvalue()).decode('ascii')}"
     except Exception:
         return ""
