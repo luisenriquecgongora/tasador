@@ -14,7 +14,7 @@ const SEARCH = {
   checking: ["Local search: checking…", ""],
   starting: ["Local search: starting in Docker…", "warn"],
   running: ["Local search: running", "ok"],
-  unavailable: ["Local search: off (Docker not running)", ""],
+  unavailable: ["Local search: optional (Docker off)", ""],
   failed: ["Local search: could not start", "bad"],
   configured: ["Search: as chosen in settings", "ok"],
 };

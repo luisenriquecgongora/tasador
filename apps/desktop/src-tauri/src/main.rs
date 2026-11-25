@@ -293,6 +293,13 @@ fn start_engine(shared: &Handle) {
         thread::sleep(Duration::from_millis(200));
     }
     if !port_free(port) {
+        if healthy(port) {
+            engine.phase = "running";
+            engine.message = String::new();
+            drop(engine);
+            watch(shared.clone(), generation, port);
+            return;
+        }
         let hint = next_free(port).map(|p| format!(" Port {p} is free.")).unwrap_or_default();
         engine.phase = "error";
         engine.message = format!("Port {port} is already used by another program. Choose another port above.{hint}");
