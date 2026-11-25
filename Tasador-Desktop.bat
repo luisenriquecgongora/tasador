@@ -9,6 +9,11 @@ set "ROOT=%~dp0"
 set "APP=%ROOT%apps\desktop\src-tauri"
 set "EXE=%APP%\target\release\tasador-desktop.exe"
 
+if exist "%EXE%" (
+    start "" "%EXE%"
+    exit /b 0
+)
+
 call "%ROOT%Tasador.bat" --install-only || goto :failed
 
 where cargo >nul 2>nul
@@ -17,7 +22,7 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-if not exist "%EXE%" echo [Tasador] First run: building the desktop app (several minutes) ...
+echo [Tasador] First run: building the desktop app (several minutes) ...
 pushd "%APP%"
 cargo build --release
 set "RC=%errorlevel%"

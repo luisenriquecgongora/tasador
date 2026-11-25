@@ -608,6 +608,9 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            show_window(app);
+        }))
         .invoke_handler(tauri::generate_handler![status, set_port, restart_engine, open_in_browser])
         // Closing the window keeps Tasador in the tray; "Quit" in the tray stops everything.
         .on_window_event(|window, event| {
@@ -637,6 +640,7 @@ fn main() {
             start_engine(&shared);
             ensure_search(shared);
             build_tray(app.handle())?;
+            show_window(app.handle());
             Ok(())
         })
         .build(tauri::generate_context!())
