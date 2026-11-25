@@ -22,6 +22,7 @@ from pydantic import ValidationError
 from starlette.datastructures import UploadFile
 
 from . import __version__
+from .activity import GLOBAL_ACTIVITY
 from .autodetect import autodetect_local, load_env_file
 from .config import Settings
 from .images import HEIC_SUPPORTED, ImageError, PreparedImage, fetch, prepare
@@ -90,8 +91,8 @@ def create_app(
         app.add_middleware(
             CORSMiddleware,
             allow_origins=settings.cors_origins,
-            allow_methods=["GET", "POST"],
-            allow_headers=["Authorization", "Content-Type"],
+            allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+            allow_headers=["Authorization", "Content-Type", "X-Tasador-UI"],
         )
 
     def require_token(request: Request) -> None:
@@ -137,6 +138,34 @@ def create_app(
         except ValidationError as exc:
             raise HTTPException(status_code=422, detail=json.loads(exc.json(include_url=False))) from exc
         return await app.state.pipeline.run(images, context)
+
+    @app.get("/v1/activity/history", dependencies=[Depends(require_token)])
+    async def activity_history() -> list[dict]:
+        """List recent identification executions (most recent first) for UI timeline and inspection."""
+        return GLOBAL_ACTIVITY.list_history()
+
+    @app.get("/v1/activity/{run_id}", dependencies=[Depends(require_token)])
+    async def activity_detail(run_id: str) -> dict:
+        """Get full execution trace including intermediate step in/out artifacts for a given run."""
+        run = GLOBAL_ACTIVITY.get_run(run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="activity record not found")
+        return run
+
+    @app.post("/v1/activity/{run_id}/rerun", response_model=IdentifyResponse, dependencies=[Depends(require_token)])
+    async def activity_rerun(run_id: str) -> IdentifyResponse:
+        """Re-run the pipeline with the exact cached input photos and context from a prior execution."""
+        replay = GLOBAL_ACTIVITY.get_replay_data(run_id)
+        if not replay:
+            raise HTTPException(status_code=404, detail="run not found or cached images expired")
+        images, context = replay
+        return await app.state.pipeline.run(images, context)
+
+    @app.delete("/v1/activity/history", dependencies=[Depends(require_token)])
+    async def clear_activity_history() -> dict:
+        """Clear recent identification execution history."""
+        GLOBAL_ACTIVITY.clear()
+        return {"status": "ok", "message": "activity history cleared"}
 
     if settings.settings_ui:
         add_settings_ui(app)

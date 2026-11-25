@@ -16,6 +16,7 @@ import time
 from datetime import date
 
 from . import local_readers
+from .activity import GLOBAL_ACTIVITY
 from .config import Settings
 from .images import PreparedImage
 from .links import sort_hits
@@ -108,63 +109,207 @@ class Pipeline:
         warnings: list[str] = []
         timings: dict[str, int] = {}
         started = time.perf_counter()
+        run_record = GLOBAL_ACTIVITY.start_run(images, context)
 
-        async with self._slots:
-            t = time.perf_counter()
-            extracted, per_photo_text = await asyncio.to_thread(_read_locally, images)
-            timings["local_read"] = int((time.perf_counter() - t) * 1000)
-
-            result = VisionResult()
-            if self.vision is None:
-                warnings.append("no vision provider configured: only barcodes and printed text were read")
-            else:
-                sent = choose_photos(per_photo_text, extracted.barcodes, getattr(self.vision, "max_images", None))
-                if len(sent) < len(images):
-                    warnings.append(
-                        f"the vision model saw {len(sent)} of {len(images)} photos (photos "
-                        f"{', '.join(str(i + 1) for i in sent)}); text and barcodes were read from all of them"
-                    )
-                position = {photo: n for n, photo in enumerate(sent)}
-                barcodes = [
-                    b.model_copy(update={"image_index": position.get(b.image_index, -1)})
-                    for b in extracted.barcodes
-                ]
-                t = time.perf_counter()
-                try:
-                    result = await self.vision.identify(
-                        [images[i].jpeg for i in sent], context, labelled_text(per_photo_text, sent), barcodes
-                    )
-                except ProviderError as exc:
-                    warnings.append(str(exc))
-                timings["vision"] = int((time.perf_counter() - t) * 1000)
-                if not result.same_item:
-                    warnings.append("the photos seem to show different items: the result describes the most prominent one")
-
-        best = self._best(result, extracted, context, warnings)
-        alternatives = [
-            Alternative(name=a.name, brand=a.brand, model=a.model, confidence=_clamp(a.confidence))
-            for a in result.alternatives[:3]
-        ]
-
-        links, price = Links(), Price(currency=context.currency)
-        if context.search_prices and best.key:
-            if self.search is None:
-                warnings.append("no web search provider configured: no links or prices")
-            else:
-                links, price = await self._search_and_verify(best, result, context, warnings, timings)
-
-        timings["total"] = int((time.perf_counter() - started) * 1000)
-        return IdentifyResponse(
-            best=best,
-            alternatives=alternatives,
-            price=price,
-            links=links,
-            extracted=extracted,
-            similar_known_items=similar_items(best, context.known_items),
-            warnings=warnings,
-            provider=self.provider_info(),
-            timings_ms=timings,
+        GLOBAL_ACTIVITY.add_step(
+            run_id=run_record.id,
+            step_id="input",
+            title="Input Photos & Parameters",
+            status="ok",
+            duration_ms=0,
+            inputs={"image_count": len(images), "context": context.model_dump()},
+            outputs={"images": run_record.input_summary.get("images", [])},
         )
+
+        try:
+            async with self._slots:
+                t = time.perf_counter()
+                extracted, per_photo_text = await asyncio.to_thread(_read_locally, images)
+                local_read_time = int((time.perf_counter() - t) * 1000)
+                timings["local_read"] = local_read_time
+
+                # Step 2: Barcodes
+                GLOBAL_ACTIVITY.add_step(
+                    run_id=run_record.id,
+                    step_id="barcodes",
+                    title="ZXing Barcode Detection",
+                    status="ok" if extracted.barcodes else "skipped",
+                    duration_ms=local_read_time // 2,
+                    inputs={"images_scanned": len(images)},
+                    outputs={
+                        "count": len(extracted.barcodes),
+                        "barcodes": [b.model_dump() for b in extracted.barcodes],
+                    },
+                    details=f"Found {len(extracted.barcodes)} barcode(s)" if extracted.barcodes else "No barcodes detected",
+                )
+
+                # Step 3: OCR
+                GLOBAL_ACTIVITY.add_step(
+                    run_id=run_record.id,
+                    step_id="ocr",
+                    title="RapidOCR Text Extraction",
+                    status="ok" if extracted.ocr_text else "skipped",
+                    duration_ms=local_read_time - (local_read_time // 2),
+                    inputs={"images_scanned": len(images)},
+                    outputs={
+                        "total_lines": len(extracted.ocr_text),
+                        "lines": extracted.ocr_text,
+                        "per_photo": per_photo_text,
+                    },
+                    details=f"Extracted {len(extracted.ocr_text)} text line(s)" if extracted.ocr_text else "No text detected",
+                )
+
+                result = VisionResult()
+                if self.vision is None:
+                    warnings.append("no vision provider configured: only barcodes and printed text were read")
+                    GLOBAL_ACTIVITY.add_step(
+                        run_id=run_record.id,
+                        step_id="vision",
+                        title="Multimodal Vision AI",
+                        status="skipped",
+                        duration_ms=0,
+                        inputs={"provider": None},
+                        outputs={},
+                        warnings=["no vision provider configured"],
+                    )
+                else:
+                    sent = choose_photos(per_photo_text, extracted.barcodes, getattr(self.vision, "max_images", None))
+                    if len(sent) < len(images):
+                        warnings.append(
+                            f"the vision model saw {len(sent)} of {len(images)} photos (photos "
+                            f"{', '.join(str(i + 1) for i in sent)}); text and barcodes were read from all of them"
+                        )
+                    position = {photo: n for n, photo in enumerate(sent)}
+                    barcodes = [
+                        b.model_copy(update={"image_index": position.get(b.image_index, -1)})
+                        for b in extracted.barcodes
+                    ]
+                    ocr_lines = labelled_text(per_photo_text, sent)
+                    t = time.perf_counter()
+                    vision_warns = []
+                    try:
+                        result = await self.vision.identify(
+                            [images[i].jpeg for i in sent], context, ocr_lines, barcodes
+                        )
+                    except ProviderError as exc:
+                        warnings.append(str(exc))
+                        vision_warns.append(str(exc))
+                    vision_time = int((time.perf_counter() - t) * 1000)
+                    timings["vision"] = vision_time
+                    if not result.same_item:
+                        warnings.append("the photos seem to show different items: the result describes the most prominent one")
+
+                    GLOBAL_ACTIVITY.add_step(
+                        run_id=run_record.id,
+                        step_id="vision",
+                        title=f"Multimodal Vision AI ({self.vision.name})",
+                        status="error" if vision_warns else ("ok" if result.name else "warning"),
+                        duration_ms=vision_time,
+                        inputs={
+                            "provider": self.vision.name,
+                            "photos_sent": sent,
+                            "labelled_ocr_count": len(ocr_lines),
+                            "barcodes_count": len(barcodes),
+                        },
+                        outputs=result.model_dump(),
+                        warnings=vision_warns,
+                        details=f"Identified '{result.name}' ({int(result.confidence * 100)}% conf)" if result.name else "Identification uncertain",
+                    )
+
+            best = self._best(result, extracted, context, warnings)
+            alternatives = [
+                Alternative(name=a.name, brand=a.brand, model=a.model, confidence=_clamp(a.confidence))
+                for a in result.alternatives[:3]
+            ]
+
+            links, price = Links(), Price(currency=context.currency)
+            if context.search_prices and best.key:
+                if self.search is None:
+                    warnings.append("no web search provider configured: no links or prices")
+                    GLOBAL_ACTIVITY.add_step(
+                        run_id=run_record.id,
+                        step_id="search",
+                        title="Web Search & Market Pricing",
+                        status="skipped",
+                        duration_ms=0,
+                        inputs={"key": best.key.model_dump() if best.key else None},
+                        outputs={},
+                        warnings=["no search provider configured"],
+                    )
+                else:
+                    links, price = await self._search_and_verify(best, result, context, warnings, timings)
+                    search_time = timings.get("search", 0) + timings.get("verify", 0)
+                    GLOBAL_ACTIVITY.add_step(
+                        run_id=run_record.id,
+                        step_id="search",
+                        title=f"Web Search & Market Pricing ({self.search.name})",
+                        status="ok" if (links.purchase or links.official) else "warning",
+                        duration_ms=search_time,
+                        inputs={
+                            "provider": self.search.name,
+                            "product_key": best.key.model_dump() if best.key else None,
+                            "currency": context.currency,
+                        },
+                        outputs={
+                            "official_links_count": len(links.official),
+                            "reference_links_count": len(links.reference),
+                            "purchase_offers_count": len(links.purchase),
+                            "price": price.model_dump(),
+                        },
+                        details=f"{len(links.purchase)} offer(s) found" if links.purchase else "No shop listings found",
+                    )
+            elif not context.search_prices:
+                GLOBAL_ACTIVITY.add_step(
+                    run_id=run_record.id,
+                    step_id="search",
+                    title="Web Search & Market Pricing",
+                    status="skipped",
+                    duration_ms=0,
+                    inputs={"search_prices": False},
+                    outputs={},
+                    details="Web search disabled in request context",
+                )
+
+            total_ms = int((time.perf_counter() - started) * 1000)
+            timings["total"] = total_ms
+
+            response = IdentifyResponse(
+                best=best,
+                alternatives=alternatives,
+                price=price,
+                links=links,
+                extracted=extracted,
+                similar_known_items=similar_items(best, context.known_items),
+                warnings=warnings,
+                provider=self.provider_info(),
+                timings_ms=timings,
+            )
+
+            GLOBAL_ACTIVITY.add_step(
+                run_id=run_record.id,
+                step_id="output",
+                title="Synthesized Output Entity",
+                status="ok",
+                duration_ms=0,
+                inputs={},
+                outputs={
+                    "name": best.name,
+                    "brand": best.brand,
+                    "model": best.model,
+                    "confidence": best.confidence,
+                    "gtin": best.gtin,
+                    "evidence": best.evidence,
+                    "price_summary": price.model_dump(),
+                },
+                details=f"Finished in {total_ms}ms with {int(best.confidence * 100)}% confidence",
+            )
+            GLOBAL_ACTIVITY.complete_run(run_record.id, response, total_ms, self.provider_info().model_dump())
+            return response
+
+        except Exception as exc:
+            total_ms = int((time.perf_counter() - started) * 1000)
+            GLOBAL_ACTIVITY.fail_run(run_record.id, str(exc), total_ms)
+            raise
 
     async def _search_and_verify(self, best, result, context, warnings, timings) -> tuple[Links, Price]:
         queries = goal_queries(best.key, best.brand, best.model, context.locale, result.search_queries)
