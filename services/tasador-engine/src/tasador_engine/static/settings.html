@@ -196,9 +196,21 @@
   .pipeline-steps { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
   .step-node {
     background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02); transition: all .2s ease;
   }
-  .step-node.active-highlight { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .step-node.active-highlight {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1.5px var(--accent), 0 4px 16px rgba(37, 99, 235, 0.15);
+  }
+  .step-node.pending-node { opacity: 0.65; border-style: dashed; }
+  .active-progress-bar {
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent) 0%, #38bdf8 50%, var(--accent) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s linear infinite;
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
   .step-header {
     display: flex; align-items: center; justify-content: space-between; padding: 12px 16px;
     background: var(--card-alt); cursor: pointer; user-select: none;
@@ -206,14 +218,14 @@
   .step-title-group { display: flex; align-items: center; gap: 10px; }
   .step-badge {
     font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
-    padding: 2px 8px; border-radius: 999px;
+    padding: 2px 8px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px;
   }
   .badge-ok { background: var(--ok-bg); color: var(--ok); }
   .badge-warning { background: var(--warn-bg); color: var(--warn); }
   .badge-error { background: var(--bad-bg); color: var(--bad); }
   .badge-skipped { background: var(--off-bg); color: var(--off); }
   .badge-running { background: var(--warn-bg); color: var(--warn); animation: pulse 1.5s infinite; }
-  @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+  @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.55; } 100% { opacity: 1; } }
 
   .step-body { padding: 16px; display: grid; gap: 12px; }
   .in-out-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -503,17 +515,18 @@
     </div>
   </section>
 
-  <!-- TAB 4: SETTINGS -->
+  <!-- TAB 4: SETTINGS / MODEL CONFIGURATOR -->
   <section id="tab-settings" class="hidden">
     <div class="chips" id="status"><span class="chip">Loading settings…</span></div>
 
     <section class="card" style="margin-top:0">
-      <h2>1. Recognition: what is it?</h2>
+      <h2>Stage 4 Tool: Multimodal Vision AI & Identification</h2>
+      <p class="hint">Choose how equipment models and specs are recognized from images and invoice pages.</p>
       <div class="modes" id="vision-modes">
-        <label class="mode"><input type="radio" name="vmode" value="local">Local (Ollama)<small>Free. Photos stay on this computer.</small></label>
-        <label class="mode"><input type="radio" name="vmode" value="claude">Claude<small>Best quality. Paid per photo.</small></label>
-        <label class="mode"><input type="radio" name="vmode" value="cloud">Other cloud AI<small>OpenAI, Gemini, OpenRouter, Groq…</small></label>
-        <label class="mode"><input type="radio" name="vmode" value="off">Off<small>Barcodes and label text only.</small></label>
+        <label class="mode"><input type="radio" name="vmode" value="local">Local (Ollama)<small>100% Free & Private. Photos stay on this computer.</small></label>
+        <label class="mode"><input type="radio" name="vmode" value="claude">Claude<small>Anthropic Vision. Paid per photo.</small></label>
+        <label class="mode"><input type="radio" name="vmode" value="cloud">Other cloud AI (OpenAI / Gemini / Groq)<small>OpenAI gpt-4o-mini, Gemini, OpenRouter…</small></label>
+        <label class="mode"><input type="radio" name="vmode" value="off">Off (Heuristics Only)<small>100% Offline. Barcodes and printed text OCR only.</small></label>
       </div>
       <div class="fields" data-for="local">
         <label class="f">Model<select id="ollama-model"></select></label>
@@ -529,19 +542,20 @@
       </div>
       <div class="fields" data-for="cloud">
         <label class="f">Provider<select id="cloud-preset"></select></label>
-        <label class="f">Model (one that reads images)<input id="cloud-model" placeholder="the provider's model name"></label>
+        <label class="f">Model (one that reads images)<input id="cloud-model" placeholder="e.g. gpt-4o-mini"></label>
         <label class="f">API key<input id="cloud-key" type="password" autocomplete="off"></label>
         <label class="f" id="cloud-url-box">Server address<input id="cloud-url" placeholder="https://…/v1"></label>
       </div>
     </section>
 
     <section class="card">
-      <h2>2. Links and prices: web search</h2>
+      <h2>Stage 5 Tool: Web Search & Market Pricing</h2>
+      <p class="hint">How candidate market prices and verified shop URLs are discovered.</p>
       <div class="modes">
-        <label class="mode"><input type="radio" name="smode" value="searxng">Local search (SearXNG)<small>Free. Needs Docker Desktop.</small></label>
-        <label class="mode"><input type="radio" name="smode" value="brave">Brave Search<small>API key, free tier available.</small></label>
-        <label class="mode"><input type="radio" name="smode" value="anthropic">Claude web search<small>Uses the Anthropic key. Paid.</small></label>
-        <label class="mode"><input type="radio" name="smode" value="none">Off<small>No links, no prices.</small></label>
+        <label class="mode"><input type="radio" name="smode" value="searxng">Local search (SearXNG)<small>Free & 100% Private. Runs via Docker Desktop.</small></label>
+        <label class="mode"><input type="radio" name="smode" value="brave">Brave Search<small>Brave Search API key, free tier available.</small></label>
+        <label class="mode"><input type="radio" name="smode" value="anthropic">Claude web search<small>Uses the Anthropic API key. Paid.</small></label>
+        <label class="mode"><input type="radio" name="smode" value="none">Off<small>No web queries, no price scraping.</small></label>
       </div>
       <p class="hint" data-for-s="searxng">
         <strong>What is local search?</strong> SearXNG is a free, open-source search engine running in Docker. Combines Google, Bing, Brave & DuckDuckGo without personal accounts.
@@ -552,10 +566,10 @@
     </section>
 
     <section class="card">
-      <h2>3. Advanced Engine Parameters</h2>
+      <h2>Stage 6 Parameters: Verification & Limits</h2>
       <div class="fields">
-        <label class="f">Shop pages to open and check (0–20)<input id="verify-pages" type="number" min="0" max="20" placeholder="8"></label>
-        <label class="f">Photos the AI looks at (0 = automatic)<input id="max-images" type="number" min="0" max="8" placeholder="0"></label>
+        <label class="f">Candidate shop pages to verify (0–20)<input id="verify-pages" type="number" min="0" max="20" placeholder="8"></label>
+        <label class="f">Photos sent to vision AI (0 = automatic)<input id="max-images" type="number" min="0" max="8" placeholder="0"></label>
       </div>
       <div class="actions">
         <button class="btn btn-primary" id="save">Save and apply</button><span id="toast"></span>
@@ -582,6 +596,17 @@ let state = null;
 let currentRun = null;
 let historyItems = [];
 let activeTab = "inspector";
+let livePollerTimer = null;
+
+// Pipeline standard stage definitions
+const PIPELINE_STAGES = [
+  { id: "input", title: "Stage 1: Document & Image Ingestion", icon: "📸", defaultDesc: "Decodes incoming files, rasterizes PDF pages, strips GPS/EXIF metadata, normalizes resolution." },
+  { id: "barcodes", title: "Stage 2: ZXing Barcode Detection", icon: "🏷️", defaultDesc: "Direct pixel scanner checking for EAN-13, UPC-A, Code-128, QR checksums." },
+  { id: "ocr", title: "Stage 3: RapidOCR Printed Text OCR", icon: "📝", defaultDesc: "Extracts text lines from equipment labels, nameplates, serial markings, and invoices." },
+  { id: "vision", title: "Stage 4: Multimodal Vision AI", icon: "🧠", defaultDesc: "Synthesizes geometry, OCR text & barcodes into exact Brand, Model, Serial & Confidence." },
+  { id: "search", title: "Stage 5: Web Search & Market Pricing", icon: "🌐", defaultDesc: "Searches candidate shop pages, verifies GTIN agreement & calculates market price ranges." },
+  { id: "output", title: "Stage 6: Consolidated Synthesis", icon: "📦", defaultDesc: "Consolidates final verified entity schema, evidence tags, latency waterfall, and shop URLs." }
+];
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -606,7 +631,6 @@ const radio = (name) => document.querySelector(`input[name=${name}]:checked`)?.v
 function setRadio(name, value) { const r = document.querySelector(`input[name=${name}][value="${value}"]`); if (r) r.checked = true; }
 
 function switchTab(tabId) {
-  // Support legacy or explicit switch to history by routing to inspector split-view
   if (tabId === "history") tabId = "inspector";
   activeTab = tabId;
   document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tabId));
@@ -694,9 +718,11 @@ function renderInspector(run) {
   dataBox.classList.remove("hidden");
 
   const best = run.output?.best || run.best || {};
-  const itemName = best.name || "Unidentified Asset";
+  const isRunning = run.status === "running";
+  const itemName = best.name || (isRunning ? "Processing Asset Identification…" : "Unidentified Asset");
   const confidence = Math.round((best.confidence || 0) * 100);
-  const statusCls = run.status === "completed" ? "badge-ok" : (run.status === "failed" ? "badge-error" : "badge-running");
+  const statusCls = isRunning ? "badge-running" : (run.status === "completed" ? "badge-ok" : "badge-error");
+  const statusText = isRunning ? "⚡ RUNNING" : (run.status === "completed" ? "✓ COMPLETED" : "✕ FAILED");
   const thumbUrl = (run.thumbnails && run.thumbnails[0]) || run.thumbnail;
   const thumbnails = run.thumbnails || (run.thumbnail ? [run.thumbnail] : []);
   const imagesMeta = run.input_summary?.images || [];
@@ -708,8 +734,8 @@ function renderInspector(run) {
       el("div", { style: "min-width:0" },
         el("h3", { class: "hero-title" }, itemName),
         el("div", { class: "hero-sub" },
-          el("span", { class: `step-badge ${statusCls}` }, run.status),
-          el("span", {}, `⚡ ${run.duration_ms || 0} ms`),
+          el("span", { class: `step-badge ${statusCls}` }, statusText),
+          el("span", {}, isRunning ? "⚡ Live In-Progress" : `⚡ ${run.duration_ms || 0} ms`),
           el("span", {}, `• ${formatTime(run.created_at)}`),
           best.confidence ? el("span", { class: "tag ok" }, `${confidence}% confidence`) : "",
           best.brand ? el("span", { class: "tag" }, `Brand: ${best.brand}`) : "",
@@ -718,7 +744,7 @@ function renderInspector(run) {
       )
     ),
     el("div", { class: "actions", style: "margin-top:0" },
-      el("button", { class: "btn btn-sm", onclick: () => copyJson(run.output || {}) }, "📋 Copy JSON"),
+      run.output ? el("button", { class: "btn btn-sm", onclick: () => copyJson(run.output || {}) }, "📋 Copy JSON") : "",
       run.can_rerun ? el("button", { class: "btn btn-sm btn-primary", onclick: () => rerun(run.id) }, "🔁 Re-run Pipeline") : ""
     )
   );
@@ -736,7 +762,7 @@ function renderInspector(run) {
       el("span", {}, `Inspected Document (${pageCount} page${pageCount > 1 ? "s" : ""})`)
     ),
     el("div", { style: "display:flex; align-items:center; gap:6px; flex-wrap:wrap" },
-      el("span", { class: "chip" }, `📝 ${ocrCount} text line${ocrCount === 1 ? "" : "s"}`),
+      ocrCount ? el("span", { class: "chip" }, `📝 ${ocrCount} text line${ocrCount === 1 ? "" : "s"}`) : "",
       barcodeCount ? el("span", { class: "chip ok" }, `🏷️ ${barcodeCount} barcode${barcodeCount === 1 ? "" : "s"}`) : "",
       linksCount ? el("span", { class: "chip" }, `🌐 ${linksCount} link${linksCount === 1 ? "" : "s"}`) : ""
     )
@@ -770,63 +796,112 @@ function renderInspector(run) {
 
   docGalleryCard.append(docHeader, galleryGrid);
 
-  // 3. Pipeline Steps Waterfall
+  // 3. Pipeline Steps Waterfall (Always renders all 6 stages with active / waiting states)
   const stepsContainer = el("div", { class: "pipeline-steps" });
-  const steps = run.steps || [];
-  if (!steps.length) {
-    stepsContainer.append(el("p", { class: "hint" }, "No intermediate step traces recorded for this execution."));
-  } else {
-    steps.forEach((step, idx) => {
-      const stepBadgeClass = step.status === "ok" ? "badge-ok" : (step.status === "error" ? "badge-error" : (step.status === "warning" ? "badge-warning" : "badge-skipped"));
+  const recordedSteps = run.steps || [];
+  let foundActive = false;
 
-      const inBox = el("div", { class: "in-out-box" },
-        el("h4", {}, "Inputs In"),
-        renderProps(step.inputs)
-      );
+  PIPELINE_STAGES.forEach((stage, idx) => {
+    // Check if this stage has finished in recordedSteps
+    const recorded = recordedSteps.find(s => s.step_id === stage.id || s.title.toLowerCase().includes(stage.id));
 
-      const outBox = el("div", { class: "in-out-box" },
-        el("h4", {}, "Outputs Out"),
-        renderProps(step.outputs)
-      );
-
+    let stepNode;
+    if (recorded) {
+      // Completed step
+      const stepBadgeClass = recorded.status === "ok" ? "badge-ok" : (recorded.status === "error" ? "badge-error" : (recorded.status === "warning" ? "badge-warning" : "badge-skipped"));
+      const inBox = el("div", { class: "in-out-box" }, el("h4", {}, "Inputs In"), renderProps(recorded.inputs));
+      const outBox = el("div", { class: "in-out-box" }, el("h4", {}, "Outputs Out"), renderProps(recorded.outputs));
       const jsonDetails = el("details", { style: "margin-top:8px" },
         el("summary", { style: "cursor:pointer; font-size:12px; color:var(--muted)" }, "Raw Step In/Out JSON"),
-        el("pre", { class: "code-json" }, JSON.stringify(step, null, 2))
+        el("pre", { class: "code-json" }, JSON.stringify(recorded, null, 2))
       );
 
-      const stepNode = el("div", { class: "step-node" },
+      stepNode = el("div", { class: "step-node" },
         el("div", { class: "step-header" },
           el("div", { class: "step-title-group" },
             el("span", { style: "font-weight:700; color:var(--muted); font-size:12px" }, `#${idx + 1}`),
-            el("span", { style: "font-weight:600; font-size:14px" }, step.title),
-            step.details ? el("span", { style: "color:var(--muted); font-size:12.5px" }, `— ${step.details}`) : ""
+            el("span", { style: "font-weight:600; font-size:14px" }, stage.title),
+            recorded.details ? el("span", { style: "color:var(--muted); font-size:12.5px" }, `— ${recorded.details}`) : ""
           ),
           el("div", { style: "display:flex; align-items:center; gap:8px" },
-            step.duration_ms ? el("span", { style: "font-size:12px; color:var(--muted)" }, `${step.duration_ms} ms`) : "",
-            el("span", { class: `step-badge ${stepBadgeClass}` }, step.status)
+            el("span", { style: "font-size:12px; color:var(--muted)" }, `${recorded.duration_ms || 0} ms`),
+            el("span", { class: `step-badge ${stepBadgeClass}` }, recorded.status)
           )
         ),
         el("div", { class: "step-body" },
           el("div", { class: "in-out-grid" }, inBox, outBox),
-          step.warnings && step.warnings.length ? el("div", { class: "chip warn" }, `⚠️ ${step.warnings.join(", ")}`) : "",
+          recorded.warnings && recorded.warnings.length ? el("div", { class: "chip warn" }, `⚠️ ${recorded.warnings.join(", ")}`) : "",
           jsonDetails
         )
       );
-      stepsContainer.append(stepNode);
-    });
-  }
+    } else if (isRunning) {
+      const isActive = !foundActive && (run.active_step?.step_id === stage.id || run.active_step?.step_id === "local_readers" || !recorded);
+      if (isActive) {
+        foundActive = true;
+        // Currently running active step
+        stepNode = el("div", { class: "step-node active-highlight" },
+          el("div", { class: "active-progress-bar" }),
+          el("div", { class: "step-header" },
+            el("div", { class: "step-title-group" },
+              el("span", { style: "font-weight:700; color:var(--muted); font-size:12px" }, `#${idx + 1}`),
+              el("span", { style: "font-weight:600; font-size:14px" }, stage.title),
+              el("span", { style: "color:var(--accent); font-size:12.5px" }, `— ${run.active_step?.details || "Executing now…"}`)
+            ),
+            el("div", { style: "display:flex; align-items:center; gap:8px" },
+              el("span", { class: "step-badge badge-running" }, "⚡ In Progress…")
+            )
+          ),
+          el("div", { class: "step-body", style: "padding:12px 16px" },
+            el("p", { class: "hint", style: "margin:0" }, run.active_step?.details || stage.defaultDesc)
+          )
+        );
+      } else {
+        // Pending step waiting to run
+        stepNode = el("div", { class: "step-node pending-node" },
+          el("div", { class: "step-header" },
+            el("div", { class: "step-title-group" },
+              el("span", { style: "font-weight:700; color:var(--muted); font-size:12px" }, `#${idx + 1}`),
+              el("span", { style: "font-weight:600; font-size:14px; color:var(--muted)" }, stage.title),
+              el("span", { style: "color:var(--muted); font-size:12.5px" }, `— ${stage.defaultDesc}`)
+            ),
+            el("div", { style: "display:flex; align-items:center; gap:8px" },
+              el("span", { class: "step-badge badge-skipped" }, "⏳ Waiting")
+            )
+          )
+        );
+      }
+    } else {
+      // Completed run, but this stage was skipped or not executed
+      stepNode = el("div", { class: "step-node", style: "opacity:0.7" },
+        el("div", { class: "step-header" },
+          el("div", { class: "step-title-group" },
+            el("span", { style: "font-weight:700; color:var(--muted); font-size:12px" }, `#${idx + 1}`),
+            el("span", { style: "font-weight:600; font-size:14px; color:var(--muted)" }, stage.title),
+            el("span", { style: "color:var(--muted); font-size:12.5px" }, `— ${stage.defaultDesc}`)
+          ),
+          el("div", { style: "display:flex; align-items:center; gap:8px" },
+            el("span", { class: "step-badge badge-skipped" }, "⚪ Skipped")
+          )
+        )
+      );
+    }
+    stepsContainer.append(stepNode);
+  });
 
   // 4. Final Output Synthesis Card
-  const finalCard = el("section", { class: "card", style: "margin-top:16px" },
-    el("div", { style: "display:flex; align-items:center; justify-content:space-between; margin-bottom:8px" },
-      el("h2", { style: "margin:0" }, "📦 Synthesized Final Payload"),
-      el("button", { class: "btn btn-sm", onclick: () => copyJson(run.output || {}) }, "📋 Copy")
-    ),
-    el("details", { open: true },
-      el("summary", { style: "cursor:pointer; color:var(--muted); margin-bottom:8px" }, "Full Response Entity JSON"),
-      el("pre", { class: "code-json", style: "max-height:400px" }, JSON.stringify(run.output || {}, null, 2))
-    )
-  );
+  let finalCard = "";
+  if (run.output) {
+    finalCard = el("section", { class: "card", style: "margin-top:16px" },
+      el("div", { style: "display:flex; align-items:center; justify-content:space-between; margin-bottom:8px" },
+        el("h2", { style: "margin:0" }, "📦 Synthesized Final Payload"),
+        el("button", { class: "btn btn-sm", onclick: () => copyJson(run.output || {}) }, "📋 Copy")
+      ),
+      el("details", { open: true },
+        el("summary", { style: "cursor:pointer; color:var(--muted); margin-bottom:8px" }, "Full Response Entity JSON"),
+        el("pre", { class: "code-json", style: "max-height:400px" }, JSON.stringify(run.output || {}, null, 2))
+      )
+    );
+  }
 
   dataBox.replaceChildren(heroNode, docGalleryCard, stepsContainer, finalCard);
 }
@@ -887,13 +962,16 @@ function renderHistoryList(items) {
   }
 
   container.replaceChildren(...filtered.map((item) => {
-    const itemName = item.best?.name || "Unidentified Asset";
-    const statusCls = item.status === "completed" ? "badge-ok" : (item.status === "failed" ? "badge-error" : "badge-running");
+    const isRunning = item.status === "running";
+    const itemName = item.best?.name || (isRunning ? "Processing Asset…" : "Unidentified Asset");
+    const statusCls = isRunning ? "badge-running" : (item.status === "completed" ? "badge-ok" : "badge-error");
+    const statusText = isRunning ? "⚡ RUNNING" : (item.status === "completed" ? "ok" : "failed");
     const isSelected = currentRun && currentRun.id === item.id;
     const pageCount = item.image_count || 1;
 
     const card = el("div", {
       class: `history-card ${isSelected ? "selected" : ""}`,
+      "data-id": item.id,
       onclick: () => inspectRun(item.id)
     },
       el("div", { class: "history-card-top" },
@@ -904,8 +982,8 @@ function renderHistoryList(items) {
         el("div", { class: "history-card-body" },
           el("h4", { class: "history-name", title: itemName }, itemName),
           el("div", { class: "history-meta" },
-            el("span", { class: `step-badge ${statusCls}` }, item.status),
-            el("span", {}, `⚡ ${item.duration_ms || 0} ms`),
+            el("span", { class: `step-badge ${statusCls}` }, statusText),
+            el("span", {}, isRunning ? "⚡ live" : `⚡ ${item.duration_ms || 0} ms`),
             el("span", {}, `• ${formatRelative(item.created_at)}`),
             item.best?.confidence ? el("span", { class: "tag ok" }, `${Math.round(item.best.confidence * 100)}%`) : ""
           )
@@ -932,14 +1010,41 @@ async function inspectRun(runId) {
     if (!res.ok) throw new Error("Could not fetch execution detail");
     const detail = await res.json();
     renderInspector(detail);
-    // Update card selection highlight in sidebar
-    document.querySelectorAll(".history-card").forEach((card) => card.classList.remove("selected"));
-    const selectedItem = historyItems.find((it) => it.id === runId);
-    if (selectedItem) {
-      renderHistoryList(historyItems);
+
+    // Highlight selected card in sidebar
+    document.querySelectorAll(".history-card").forEach((card) => {
+      card.classList.toggle("selected", card.dataset.id === runId);
+    });
+
+    // Active live polling for currently running executions
+    if (livePollerTimer) {
+      clearInterval(livePollerTimer);
+      livePollerTimer = null;
+    }
+    if (detail.status === "running") {
+      livePollerTimer = setInterval(async () => {
+        try {
+          if (!currentRun || currentRun.id !== runId) {
+            clearInterval(livePollerTimer);
+            livePollerTimer = null;
+            return;
+          }
+          const pollRes = await fetch(`/v1/activity/${runId}`);
+          if (!pollRes.ok) return;
+          const pollDetail = await pollRes.json();
+          renderInspector(pollDetail);
+
+          // Once finished, stop fast polling and update history cards
+          if (pollDetail.status !== "running") {
+            clearInterval(livePollerTimer);
+            livePollerTimer = null;
+            await loadHistory();
+          }
+        } catch (e) {}
+      }, 650);
     }
   } catch (err) {
-    alert(`Could not load trace: ${err.message}`);
+    console.error("Could not load trace:", err);
   }
 }
 
@@ -1184,22 +1289,32 @@ document.addEventListener("change", (event) => {
 });
 $("save").addEventListener("click", saveSettings);
 
-// Background auto-refresh for history (picks up external API requests)
+// Background auto-refresh for history (picks up external API requests & detects status transitions)
 setInterval(async () => {
   try {
     const res = await fetch("/v1/activity/history");
     const newItems = await res.json();
-    if (newItems.length !== historyItems.length) {
+    const hasDiff = newItems.length !== historyItems.length ||
+      JSON.stringify(newItems.map(it => [it.id, it.status, it.duration_ms])) !==
+      JSON.stringify(historyItems.map(it => [it.id, it.status, it.duration_ms]));
+
+    if (hasDiff) {
       historyItems = newItems;
       $("history-badge").textContent = historyItems.length;
       renderHistoryList(historyItems);
-      // If currently on inspector with empty view, auto-load latest
-      if (!currentRun && historyItems.length) {
+
+      // If current run's status changed (e.g. running -> completed)
+      if (currentRun) {
+        const matching = newItems.find(it => it.id === currentRun.id);
+        if (matching && (matching.status !== currentRun.status || currentRun.status === "running")) {
+          inspectRun(currentRun.id);
+        }
+      } else if (historyItems.length) {
         inspectRun(historyItems[0].id);
       }
     }
   } catch (e) {}
-}, 2500);
+}, 1800);
 
 // Global Window functions
 window.inspectRun = inspectRun;

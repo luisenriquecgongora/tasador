@@ -74,6 +74,7 @@ class ActivityRun:
     input_summary: dict[str, Any] = field(default_factory=dict)
     thumbnails: list[str] = field(default_factory=list)
     steps: list[StepTrace] = field(default_factory=list)
+    active_step: dict[str, Any] | None = None
     output: dict[str, Any] | None = None
     provider: dict[str, Any] | None = None
 
@@ -110,6 +111,7 @@ class ActivityRun:
             "status": self.status,
             "duration_ms": self.duration_ms,
             "error": self.error,
+            "active_step": self.active_step,
             "image_count": len(self.thumbnails),
             "thumbnail": self.thumbnails[0] if self.thumbnails else None,
             "best": best,
@@ -125,6 +127,7 @@ class ActivityRun:
             "input_summary": self.input_summary,
             "thumbnails": self.thumbnails,
             "steps": [s.to_dict() for s in self.steps],
+            "active_step": self.active_step,
             "output": self.output,
         })
         return summary
@@ -335,6 +338,18 @@ class ActivityTracker:
                 run.steps.append(trace)
                 self._save_run_to_db(run)
 
+    def set_active_step(self, run_id: str, step_id: str, title: str, details: str | None = None) -> None:
+        with self._lock:
+            run = self._by_id.get(run_id)
+            if run and run.status == "running":
+                run.active_step = {
+                    "step_id": step_id,
+                    "title": title,
+                    "details": details,
+                    "started_at": datetime.now(timezone.utc).isoformat(),
+                }
+                self._save_run_to_db(run)
+
     def complete_run(
         self,
         run_id: str,
@@ -347,6 +362,7 @@ class ActivityTracker:
             if run:
                 run.status = "completed"
                 run.duration_ms = duration_ms
+                run.active_step = None
                 run.output = response.model_dump()
                 run.provider = provider_info or (
                     response.provider.model_dump() if response.provider else None
@@ -358,6 +374,7 @@ class ActivityTracker:
             run = self._by_id.get(run_id)
             if run:
                 run.status = "failed"
+                run.active_step = None
                 run.error = error_message
                 run.duration_ms = duration_ms
                 self._save_run_to_db(run)

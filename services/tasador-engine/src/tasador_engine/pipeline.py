@@ -207,6 +207,12 @@ class Pipeline:
             inputs={"image_count": len(images), "context": context.model_dump()},
             outputs={"images": run_record.input_summary.get("images", [])},
         )
+        GLOBAL_ACTIVITY.set_active_step(
+            run_id=run_record.id,
+            step_id="local_readers",
+            title="Scanning barcodes & reading printed text (RapidOCR)",
+            details="Running ZXing-C++ barcode scanner and RapidOCR deep learning ONNX model locally",
+        )
 
         try:
             async with self._slots:
@@ -260,6 +266,12 @@ class Pipeline:
                         warnings=["no vision provider configured"],
                     )
                 else:
+                    GLOBAL_ACTIVITY.set_active_step(
+                        run_id=run_record.id,
+                        step_id="vision",
+                        title=f"Multimodal Vision AI ({self.vision.name})",
+                        details="Synthesizing visual geometry, OCR text lines, and barcodes into verified entity fields",
+                    )
                     sent = choose_photos(per_photo_text, extracted.barcodes, getattr(self.vision, "max_images", None))
                     if len(sent) < len(images):
                         warnings.append(
@@ -328,6 +340,12 @@ class Pipeline:
                         warnings=["no search provider configured"],
                     )
                 else:
+                    GLOBAL_ACTIVITY.set_active_step(
+                        run_id=run_record.id,
+                        step_id="search",
+                        title=f"Web Search & Pricing ({self.search.name})",
+                        details="Querying verified shop listings, extracting schema.org data & price ranges",
+                    )
                     links, price = await self._search_and_verify(best, result, context, warnings, timings)
                     search_time = timings.get("search", 0) + timings.get("verify", 0)
                     GLOBAL_ACTIVITY.add_step(
@@ -360,6 +378,13 @@ class Pipeline:
                     outputs={},
                     details="Web search disabled in request context",
                 )
+
+            GLOBAL_ACTIVITY.set_active_step(
+                run_id=run_record.id,
+                step_id="output",
+                title="Consolidating Response Payload",
+                details="Synthesizing final product keys, evidence tags & timing waterfall",
+            )
 
             total_ms = int((time.perf_counter() - started) * 1000)
             timings["total"] = total_ms
