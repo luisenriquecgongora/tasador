@@ -179,6 +179,25 @@ def test_capabilities(settings):
     assert body["provider"]["vision"] == "fake-vision"
     assert body["provider"]["search"] is None
     assert body["url_images"] is False
+    assert body["pdf"] is True
+
+
+def test_identify_pdf_upload(settings):
+    import io
+    import pypdfium2 as pdfium
+
+    doc = pdfium.PdfDocument.new()
+    doc.new_page(200, 300)
+    out = io.BytesIO()
+    doc.save(out)
+    pdf_data = out.getvalue()
+
+    client = make_client(settings, FakeVision())
+    files = [("images", ("invoice.pdf", pdf_data, "application/pdf"))]
+    resp = client.post("/v1/identify", files=files)
+    assert resp.status_code == 200
+    assert resp.json()["version"] == "1"
+
 
 
 def test_real_world_search_results(settings):

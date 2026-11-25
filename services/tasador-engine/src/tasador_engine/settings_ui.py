@@ -129,11 +129,12 @@ def _state(app: FastAPI, settings: Settings) -> dict:
 def add_settings_ui(app: FastAPI) -> None:
     ui_key = secrets.token_urlsafe(24)
     base_settings: Settings = app.state.pipeline.settings
-    page = resources.files("tasador_engine").joinpath("static/settings.html").read_text(encoding="utf-8")
+    static_file = resources.files("tasador_engine").joinpath("static/settings.html")
 
     @app.get("/", include_in_schema=False)
     async def settings_page(request: Request) -> HTMLResponse:
         _require_local(request)
+        page = static_file.read_text(encoding="utf-8")
         return HTMLResponse(page.replace("__UI_KEY__", ui_key), headers={"Cache-Control": "no-store"})
 
     @app.get("/ui/state", include_in_schema=False)

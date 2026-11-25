@@ -25,7 +25,7 @@ from . import __version__
 from .activity import GLOBAL_ACTIVITY
 from .autodetect import autodetect_local, load_env_file
 from .config import Settings
-from .images import HEIC_SUPPORTED, ImageError, PreparedImage, fetch, prepare
+from .images import HEIC_SUPPORTED, PDF_SUPPORTED, ImageError, PreparedImage, fetch, prepare, prepare_many
 from .net import tls_context
 from .pages import PageFetcher
 from .pipeline import Pipeline
@@ -113,6 +113,7 @@ def create_app(
             engine_version=__version__,
             provider=app.state.pipeline.provider_info(),
             heic=HEIC_SUPPORTED,
+            pdf=PDF_SUPPORTED,
             url_images=bool(settings.allowed_image_hosts),
             max_images=settings.max_images,
             max_image_bytes=settings.max_image_bytes,
@@ -188,10 +189,14 @@ async def _from_multipart(request: Request, settings: Settings) -> tuple[list[Pr
         context = IdentifyContext.model_validate_json(raw_context)
     else:
         context = IdentifyContext()
-    images = []
+    images: list[PreparedImage] = []
     for index, upload in enumerate(files):
+        remaining = max(1, settings.max_images - len(images))
         data = await upload.read(settings.max_image_bytes + 1)
-        images.append(prepare(data, settings, upload.filename or f"image {index + 1}"))
+        prepped = prepare_many(data, settings, upload.filename or f"image {index + 1}", max_pages=remaining)
+        images.extend(prepped)
+        if len(images) >= settings.max_images:
+            break
     return images, context
 
 
@@ -200,9 +205,13 @@ async def _from_json(
 ) -> tuple[list[PreparedImage], IdentifyContext]:
     body = IdentifyJsonRequest.model_validate_json(await request.body())
     _check_count(len(body.images), settings)
-    images = []
+    images: list[PreparedImage] = []
     for item in body.images:
-        images.append(prepare(await fetch(item.url, settings, client), settings, item.url))
+        remaining = max(1, settings.max_images - len(images))
+        prepped = prepare_many(await fetch(item.url, settings, client), settings, item.url, max_pages=remaining)
+        images.extend(prepped)
+        if len(images) >= settings.max_images:
+            break
     return images, body.context
 
 
