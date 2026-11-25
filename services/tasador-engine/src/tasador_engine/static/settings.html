@@ -480,7 +480,20 @@ let activeTab = "inspector";
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) k === "class" ? (node.className = v) : node.setAttribute(k, v);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") {
+      node.className = v;
+    } else if (k.startsWith("on")) {
+      const eventName = k.slice(2).toLowerCase();
+      if (typeof v === "function") {
+        node.addEventListener(eventName, v);
+      } else {
+        node.setAttribute(k, v);
+      }
+    } else {
+      node.setAttribute(k, v);
+    }
+  }
   for (const child of children) node.append(child instanceof Node ? child : document.createTextNode(String(child ?? "")));
   return node;
 }
@@ -575,7 +588,7 @@ function renderInspector(run) {
       )
     ),
     el("div", { class: "actions", style: "margin-top:0" },
-      run.can_rerun ? el("button", { class: "btn btn-primary", onclick: `rerun('${run.id}')` }, "🔁 Re-run Pipeline") : ""
+      run.can_rerun ? el("button", { class: "btn btn-primary", onclick: () => rerun(run.id) }, "🔁 Re-run Pipeline") : ""
     )
   );
 
@@ -744,6 +757,11 @@ async function rerun(runId) {
     navStatus.className = "chip bad";
   }
 }
+
+window.inspectRun = inspectRun;
+window.switchTab = switchTab;
+window.rerun = rerun;
+window.clearHistory = clearHistory;
 
 async function clearHistory() {
   if (!confirm("Clear all execution traces from history?")) return;
