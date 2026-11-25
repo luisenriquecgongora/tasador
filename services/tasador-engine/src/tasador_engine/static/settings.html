@@ -172,6 +172,28 @@
   /* Empty state */
   .empty-state { text-align: center; padding: 48px 16px; color: var(--muted); }
   .empty-state h3 { font-size: 16px; color: var(--text); margin: 0 0 6px; }
+
+  /* Architecture Diagram Styles */
+  .arch-pipeline { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+  .arch-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 18px; display: flex; align-items: flex-start; gap: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  }
+  .arch-icon {
+    font-size: 24px; width: 44px; height: 44px; border-radius: 10px;
+    background: var(--card-alt); display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--line); flex-shrink: 0;
+  }
+  .arch-content { flex: 1; min-width: 0; }
+  .arch-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .arch-title { font-size: 15px; font-weight: 700; margin: 0; }
+  .arch-desc { color: var(--muted); font-size: 13px; margin: 4px 0 0; line-height: 1.45; }
+  .arch-arrow { text-align: center; color: var(--accent); font-size: 18px; margin: -4px 0; user-select: none; }
+  .arch-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 14px; }
+  .arch-box { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .arch-box h4 { margin: 0 0 6px; font-size: 11.5px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.5px; }
+  .arch-box .val { font-size: 13.5px; font-weight: 600; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
@@ -191,6 +213,9 @@
     </button>
     <button class="tab-btn" data-tab="playground">
       <span>🧪 Playground</span>
+    </button>
+    <button class="tab-btn" data-tab="architecture">
+      <span>🗺️ Architecture</span>
     </button>
     <button class="tab-btn" data-tab="settings">
       <span>⚙️ Settings</span>
@@ -255,7 +280,134 @@
     </div>
   </section>
 
-  <!-- TAB 4: SETTINGS -->
+  <!-- TAB 4: ARCHITECTURE -->
+  <section id="tab-architecture" class="hidden">
+    <div class="card" style="margin-top:0">
+      <h2>🗺️ Architecture & Multimodal Pipeline DAG</h2>
+      <p class="hint">How Tasador transforms raw pixel photos into verified product keys, market prices, and structured entity JSON.</p>
+
+      <div class="arch-grid" id="arch-components">
+        <div class="arch-box">
+          <h4>👁️ Vision AI Engine</h4>
+          <div class="val" id="arch-val-vision">Loading…</div>
+        </div>
+        <div class="arch-box">
+          <h4>🌐 Search Engine</h4>
+          <div class="val" id="arch-val-search">Loading…</div>
+        </div>
+        <div class="arch-box">
+          <h4>🏷️ Barcode Scanner</h4>
+          <div class="val" id="arch-val-barcode">ZXing-C++ (Native)</div>
+        </div>
+        <div class="arch-box">
+          <h4>📝 Printed Text OCR</h4>
+          <div class="val" id="arch-val-ocr">RapidOCR (ONNX)</div>
+        </div>
+        <div class="arch-box">
+          <h4>🔒 Privacy Guarantee</h4>
+          <div class="val" id="arch-val-privacy" style="color:var(--ok)">100% Local / Air-Gapped</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-pipeline">
+      <!-- Node 1 -->
+      <div class="arch-card">
+        <div class="arch-icon">📸</div>
+        <div class="arch-content">
+          <div class="arch-header">
+            <span class="arch-title">Stage 1: Ingestion & Normalization</span>
+            <span class="tag ok">images.py</span>
+          </div>
+          <p class="arch-desc">
+            Decodes incoming files (JPEG, PNG, HEIC from iPhones). Normalizes EXIF orientation, strips GPS coordinates & device metadata for privacy, and downscales to max 1568 px.
+          </p>
+        </div>
+      </div>
+
+      <div class="arch-arrow">↓</div>
+
+      <!-- Node 2 -->
+      <div class="arch-card">
+        <div class="arch-icon">🏷️</div>
+        <div class="arch-content">
+          <div class="arch-header">
+            <span class="arch-title">Stage 2: Local Barcode Scanner (ZXing)</span>
+            <span class="tag ok">zxingcpp (C++) · ~15ms</span>
+          </div>
+          <p class="arch-desc">
+            Direct pixel scanner checks for EAN-13, UPC-A, Code-128, and QR codes across all photos. Detects manufacturer GTIN barcodes with mathematical checksum verification.
+          </p>
+        </div>
+      </div>
+
+      <div class="arch-arrow">↓</div>
+
+      <!-- Node 3 -->
+      <div class="arch-card">
+        <div class="arch-icon">📝</div>
+        <div class="arch-content">
+          <div class="arch-header">
+            <span class="arch-title">Stage 3: Local Printed Text OCR (RapidOCR)</span>
+            <span class="tag ok">ONNX Runtime · ~350ms</span>
+          </div>
+          <p class="arch-desc">
+            Runs deep learning OCR model locally to extract text lines from equipment chassis, serial plates, voltage markings, and labels. Groups text per photo and merges shared vocabulary.
+          </p>
+        </div>
+      </div>
+
+      <div class="arch-arrow">↓</div>
+
+      <!-- Node 4 -->
+      <div class="arch-card">
+        <div class="arch-icon">🧠</div>
+        <div class="arch-content">
+          <div class="arch-header">
+            <span class="arch-title">Stage 4: Multimodal Vision AI</span>
+            <span class="tag ok">Ollama (Local) / Claude (Cloud)</span>
+          </div>
+          <p class="arch-desc">
+            Multimodal LLM synthesizes visual geometry with OCR nameplate text and barcodes. Identifies exact Brand, Model, Equipment Type, Serial Number, Confidence %, and generates targeted search queries.
+          </p>
+        </div>
+      </div>
+
+      <div class="arch-arrow">↓</div>
+
+      <!-- Node 5 -->
+      <div class="arch-card">
+        <div class="arch-icon">🌐</div>
+        <div class="arch-content">
+          <div class="arch-header">
+            <span class="arch-title">Stage 5: Web Search & Market Pricing</span>
+            <span class="tag ok">SearXNG (Docker) / Brave</span>
+          </div>
+          <p class="arch-desc">
+            Runs structured queries (GTIN query, Brand + Model query). Fetches top candidate shop pages, extracts schema.org Product metadata, verifies GTIN agreement, drops statistical outliers, and calculates New & Used price ranges in target currency.
+          </p>
+        </div>
+      </div>
+
+      <div class="arch-arrow">↓</div>
+
+      <!-- Node 6 -->
+      <div class="arch-card">
+        <div class="arch-icon">📦</div>
+        <div class="arch-content">
+          <div class="arch-header">
+            <span class="arch-title">Stage 6: Consolidated Synthesis</span>
+            <span class="tag ok">pipeline.py</span>
+          </div>
+          <p class="arch-desc">
+            Consolidates final entity schema with evidence tags (e.g. <code>barcode:1</code>, <code>ocr:printed-text</code>, <code>gtin:from-shop-page</code>), duplicates warning, latency waterfall, and verified shop offer URLs.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 5: SETTINGS -->
   <section id="tab-settings" class="hidden">
     <div class="chips" id="status"><span class="chip">Loading settings…</span></div>
 
@@ -341,10 +493,34 @@ function switchTab(tabId) {
   $("tab-inspector").classList.toggle("hidden", tabId !== "inspector");
   $("tab-history").classList.toggle("hidden", tabId !== "history");
   $("tab-playground").classList.toggle("hidden", tabId !== "playground");
+  $("tab-architecture").classList.toggle("hidden", tabId !== "architecture");
   $("tab-settings").classList.toggle("hidden", tabId !== "settings");
   if (tabId === "history") loadHistory();
+  if (tabId === "architecture") renderArchitecture();
 }
 document.querySelectorAll(".tab-btn").forEach((btn) => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
+
+function renderArchitecture() {
+  if (!state) return;
+  const { active, searxng } = state;
+  const visionStr = active.vision
+    ? (active.vision === "ollama" ? `Ollama (${state.values.TASADOR_VISION_MODEL || "local"})` : active.vision)
+    : "Disabled";
+  const searchStr = active.search
+    ? (active.search === "searxng" ? `SearXNG (${searxng.url})` : active.search)
+    : "Disabled";
+
+  if ($("arch-val-vision")) $("arch-val-vision").textContent = visionStr;
+  if ($("arch-val-search")) $("arch-val-search").textContent = searchStr;
+  if ($("arch-val-barcode")) $("arch-val-barcode").textContent = active.barcode ? "ZXing-C++ (Active)" : "Off";
+  if ($("arch-val-ocr")) $("arch-val-ocr").textContent = active.ocr ? "RapidOCR ONNX (Active)" : "Off";
+  const isLocal = (!active.vision || active.vision.startsWith("ollama")) && (!active.search || active.search.startsWith("searxng"));
+  const priv = $("arch-val-privacy");
+  if (priv) {
+    priv.textContent = isLocal ? "100% Local / Air-Gapped ✓" : "Hybrid Cloud AI";
+    priv.style.color = isLocal ? "var(--ok)" : "var(--warn)";
+  }
+}
 
 // Format helpers
 function formatTime(isoStr) {
@@ -681,6 +857,7 @@ function renderSettings() {
   $("max-images").value = values.TASADOR_VISION_MAX_IMAGES || "";
   $("env-hint").textContent = env_file ? `Saved to ${env_file}.` : "Changes apply until engine stops.";
   showModes();
+  renderArchitecture();
 }
 
 function collectChanges() {
