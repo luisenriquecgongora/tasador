@@ -108,5 +108,16 @@ def settings() -> Settings:
     return Settings(vision_provider="none", search_provider="none")
 
 
+@pytest.fixture(autouse=True)
+def isolate_test_activity_db(tmp_path):
+    from tasador_engine.activity import GLOBAL_ACTIVITY
+    orig_path = GLOBAL_ACTIVITY._db_path
+    GLOBAL_ACTIVITY.configure_db(tmp_path / "test_activity.db")
+    try:
+        yield
+    finally:
+        GLOBAL_ACTIVITY.configure_db(orig_path)
+
+
 def make_client(settings: Settings, vision=None, search=None, fetcher=None) -> TestClient:
     return TestClient(create_app(settings, vision=vision, search=search, fetcher=fetcher or FakeFetcher()))

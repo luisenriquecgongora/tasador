@@ -91,8 +91,9 @@ def create_app(
         app.add_middleware(
             CORSMiddleware,
             allow_origins=settings.cors_origins,
-            allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-            allow_headers=["Authorization", "Content-Type", "X-Tasador-UI"],
+            allow_methods=["*"],
+            allow_headers=["*"],
+            expose_headers=["*"],
         )
 
     def require_token(request: Request) -> None:

@@ -160,6 +160,14 @@ class ActivityTracker:
         self._init_db()
         self._load_from_db()
 
+    def configure_db(self, db_path: str | Path) -> None:
+        with self._lock:
+            self._db_path = Path(db_path)
+            self._init_db()
+            self._runs.clear()
+            self._by_id.clear()
+            self._load_from_db()
+
     def _init_db(self) -> None:
         try:
             self._db_path.parent.mkdir(parents=True, exist_ok=True)

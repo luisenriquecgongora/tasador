@@ -24,8 +24,8 @@ def _sample_image() -> PreparedImage:
     return PreparedImage(jpeg=buf.getvalue(), image=img)
 
 
-def test_activity_tracker_lifecycle():
-    tracker = ActivityTracker(max_runs=10)
+def test_activity_tracker_lifecycle(tmp_path):
+    tracker = ActivityTracker(max_runs=10, db_path=tmp_path / "lifecycle.db")
     tracker.clear()
     assert len(tracker.list_history()) == 0
 
