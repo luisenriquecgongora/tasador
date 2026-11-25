@@ -109,6 +109,14 @@ def write_env_file(path: Path, changes: dict[str, str]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _preview_key(val: str) -> str:
+    if not val:
+        return ""
+    if len(val) <= 12:
+        return val[:2] + "••••" + val[-2:]
+    return val[:12] + "••••••••" + val[-4:] + f" ({len(val)} chars)"
+
+
 def _state(app: FastAPI, settings: Settings) -> dict:
     try:
         ollama = {"running": True, "models": vision_models()}
@@ -119,6 +127,7 @@ def _state(app: FastAPI, settings: Settings) -> dict:
         "active": app.state.pipeline.provider_info().model_dump(),
         "values": {key: os.environ.get(key, "") for key in VALUES},
         "secrets": {key: bool(os.environ.get(key)) for key in SECRETS},
+        "secret_previews": {key: _preview_key(os.environ.get(key, "")) for key in SECRETS},
         "ollama": ollama,
         "searxng": {"url": searxng_url, "reachable": _reachable(searxng_url)},
         "presets": list(VISION_PRESETS),
@@ -168,3 +177,79 @@ def add_settings_ui(app: FastAPI) -> None:
                 os.environ.pop(key, None)
         app.state.pipeline = Pipeline(settings, vision, search, app.state.pipeline.fetcher)
         return _state(app, settings)
+
+    @app.post("/ui/secrets/reveal", include_in_schema=False)
+    async def ui_reveal_secret(request: Request, body: dict) -> dict:
+        _require_local(request)
+        if not hmac.compare_digest(request.headers.get("x-tasador-ui", ""), ui_key):
+            raise HTTPException(status_code=403, detail="reload the settings page and try again")
+        key_name = body.get("key", "").strip()
+        if key_name not in SECRETS:
+            raise HTTPException(status_code=400, detail="unknown secret key")
+        return {"key": key_name, "value": os.environ.get(key_name, "")}
+
+    @app.get("/ui/models", include_in_schema=False)
+    async def ui_models(request: Request) -> dict:
+        _require_local(request)
+        current_settings = app.state.pipeline.settings
+        from .model_hub import get_model_catalog
+        return get_model_catalog(
+            active_provider=current_settings.vision_provider,
+            active_model=current_settings.vision_model,
+            ollama_url=getattr(current_settings, "vision_base_url", None) or "http://localhost:11434",
+        )
+
+    @app.post("/ui/models/pull", include_in_schema=False)
+    async def ui_models_pull(request: Request, body: dict) -> dict:
+        _require_local(request)
+        model_id = body.get("model", "").strip()
+        if not model_id:
+            raise HTTPException(status_code=400, detail="model is required")
+        from .model_hub import GLOBAL_PULL_TRACKER
+        current_settings = app.state.pipeline.settings
+        ollama_url = getattr(current_settings, "vision_base_url", None) or "http://localhost:11434"
+        started = GLOBAL_PULL_TRACKER.start_pull(model_id, ollama_url)
+        return {"status": "started" if started else "already_running", "pull": GLOBAL_PULL_TRACKER.get_status()}
+
+    @app.get("/ui/models/pull/status", include_in_schema=False)
+    async def ui_models_pull_status(request: Request) -> dict:
+        _require_local(request)
+        from .model_hub import GLOBAL_PULL_TRACKER
+        return GLOBAL_PULL_TRACKER.get_status()
+
+    @app.post("/ui/models/cancel-pull", include_in_schema=False)
+    async def ui_models_cancel_pull(request: Request) -> dict:
+        _require_local(request)
+        from .model_hub import GLOBAL_PULL_TRACKER
+        GLOBAL_PULL_TRACKER.cancel()
+        return {"status": "cancelled", "pull": GLOBAL_PULL_TRACKER.get_status()}
+
+    @app.post("/ui/models/activate", include_in_schema=False)
+    async def ui_models_activate(request: Request, body: dict) -> dict:
+        _require_local(request)
+        model_id = body.get("model", "").strip()
+        if not model_id:
+            raise HTTPException(status_code=400, detail="model is required")
+        changes = {
+            "TASADOR_VISION_PROVIDER": "ollama",
+            "TASADOR_VISION_MODEL": model_id,
+        }
+        planned = {**os.environ, **changes}
+        settings = replace(Settings.from_env(planned), settings_ui=True, env_file=base_settings.env_file)
+        vision, search = build_vision(settings), build_search(settings)
+        if settings.env_file:
+            write_env_file(Path(settings.env_file), changes)
+        for key, value in changes.items():
+            os.environ[key] = value
+        app.state.pipeline = Pipeline(settings, vision, search, app.state.pipeline.fetcher)
+        return _state(app, settings)
+
+    @app.post("/ui/secrets/reveal", include_in_schema=False)
+    async def ui_reveal_secret(request: Request, body: dict) -> dict:
+        _require_local(request)
+        if not hmac.compare_digest(request.headers.get("x-tasador-ui", ""), ui_key):
+            raise HTTPException(status_code=403, detail="reload the settings page and try again")
+        key_name = body.get("key", "").strip()
+        if key_name not in SECRETS:
+            raise HTTPException(status_code=400, detail="unknown secret key")
+        return {"key": key_name, "value": os.environ.get(key_name, "")}

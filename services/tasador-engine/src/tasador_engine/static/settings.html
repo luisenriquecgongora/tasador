@@ -292,6 +292,61 @@
   .arch-box { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
   .arch-box h4 { margin: 0 0 6px; font-size: 11.5px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.5px; }
   .arch-box .val { font-size: 13.5px; font-weight: 600; overflow-wrap: anywhere; }
+
+  /* Hardware Telemetry Banner */
+  .hw-banner {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(56,189,248,0.04));
+    border: 1px solid rgba(56,189,248,0.25); border-radius: 10px; padding: 12px 18px; margin-bottom: 16px;
+  }
+  .hw-left { display: flex; align-items: center; gap: 12px; }
+  .hw-icon { font-size: 26px; }
+  .hw-title { font-size: 13.5px; font-weight: 700; color: var(--text); }
+  .hw-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* Model Hub Cards Grid */
+  .model-hub-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-top: 14px;
+  }
+  .model-hub-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px; display: flex; flex-direction: column; justify-content: space-between;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .model-hub-card:hover { border-color: var(--accent); }
+  .model-hub-card.active-card {
+    border-color: var(--ok); background: linear-gradient(180deg, rgba(34,197,94,0.04), var(--card));
+    box-shadow: 0 0 0 1px var(--ok);
+  }
+  .model-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .model-name { font-size: 14.5px; font-weight: 700; color: var(--text); }
+  .model-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .model-desc { font-size: 12px; color: var(--muted); line-height: 1.45; margin: 10px 0 14px; flex-grow: 1; }
+  .model-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+
+  /* Model Download Progress Bar */
+  .pull-progress-box { width: 100%; margin-top: 8px; }
+  .pull-progress-bar-bg { height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; margin-bottom: 4px; }
+  .pull-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #38bdf8); transition: width 0.3s ease; }
+  .pull-progress-text { font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; }
+
+  /* Input with Eye Button */
+  .input-with-eye {
+    position: relative; display: flex; align-items: center; width: 100%;
+  }
+  .input-with-eye input {
+    width: 100%; padding-right: 42px !important;
+  }
+  .btn-eye {
+    position: absolute; right: 8px; background: transparent; border: none;
+    font-size: 16px; cursor: pointer; padding: 4px 6px; border-radius: 4px;
+    color: var(--muted); transition: color 0.15s, background 0.15s; line-height: 1;
+  }
+  .btn-eye:hover { color: var(--text); background: var(--card-alt); }
+  .key-status-hint {
+    font-size: 11.5px; margin-top: 5px; color: var(--muted); display: flex; align-items: center; gap: 8px;
+  }
+  .key-status-hint.active { color: var(--ok); font-weight: 500; }
 </style>
 </head>
 <body>
@@ -528,22 +583,63 @@
         <label class="mode"><input type="radio" name="vmode" value="cloud">Other cloud AI (OpenAI / Gemini / Groq)<small>OpenAI gpt-4o-mini, Gemini, OpenRouter…</small></label>
         <label class="mode"><input type="radio" name="vmode" value="off">Off (Heuristics Only)<small>100% Offline. Barcodes and printed text OCR only.</small></label>
       </div>
-      <div class="fields" data-for="local">
-        <label class="f">Model<select id="ollama-model"></select></label>
-        <label class="f">…or another model name<input id="ollama-other" placeholder="e.g. qwen2.5vl:7b"></label>
+      <div data-for="local" style="margin-top:16px">
+        <div id="hw-banner" class="hw-banner">
+          <div class="hw-left">
+            <div class="hw-icon">🖥️</div>
+            <div>
+              <div class="hw-title" id="hw-gpu">Detecting host GPU & VRAM…</div>
+              <div class="hw-sub" id="hw-ram">Checking memory bandwidth and compute units…</div>
+            </div>
+          </div>
+          <div class="tag ok" id="hw-status">🟢 Hardware Sizing Active</div>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px">
+          <h3 style="margin:0; font-size:14px; font-weight:700">🎛️ Local Vision Models & GPU VRAM Sizing</h3>
+          <button type="button" class="btn btn-sm" onclick="loadModelCatalog()" style="font-size:12px; padding:3px 8px">🔄 Refresh Models</button>
+        </div>
+        <p class="hint" style="margin-top:2px; margin-bottom:12px">
+          Curated multimodal vision models for equipment plate reading and invoice analysis. Check whether each model fits in dedicated GPU VRAM or spills to system RAM.
+        </p>
+
+        <div id="model-hub-grid" class="model-hub-grid">
+          <!-- Rendered dynamically via renderModelHub() -->
+        </div>
+
+        <div class="fields" style="margin-top:16px">
+          <label class="f">Custom / Advanced Model Name<input id="ollama-other" placeholder="e.g. qwen2.5vl:3b, llava:13b"></label>
+          <label class="f">Installed Ollama Models (Legacy Picker)<select id="ollama-model"></select></label>
+        </div>
+        <p class="hint" id="ollama-hint" style="margin-top:4px"></p>
       </div>
-      <p class="hint" data-for="local" id="ollama-hint"></p>
+
       <div class="fields" data-for="claude">
-        <label class="f">Anthropic API key<input id="anthropic-key" type="password" autocomplete="off"></label>
+        <label class="f">
+          Anthropic API key
+          <div class="input-with-eye">
+            <input id="anthropic-key" type="password" autocomplete="off">
+            <button type="button" class="btn-eye" onclick="toggleKeyVisibility('anthropic-key')" title="Show / Hide API key">👁️</button>
+          </div>
+          <div id="anthropic-key-status" class="key-status-hint"></div>
+        </label>
         <label class="f">Model<input id="claude-model" placeholder="claude-opus-5-5"></label>
         <label class="f">Effort<select id="claude-effort">
           <option value="low">low (fastest)</option><option value="medium">medium</option><option value="high">high</option>
           <option value="xhigh">xhigh</option><option value="max">max (slowest)</option></select></label>
       </div>
+
       <div class="fields" data-for="cloud">
         <label class="f">Provider<select id="cloud-preset"></select></label>
         <label class="f">Model (one that reads images)<input id="cloud-model" placeholder="e.g. gpt-4o-mini"></label>
-        <label class="f">API key<input id="cloud-key" type="password" autocomplete="off"></label>
+        <label class="f">
+          API key
+          <div class="input-with-eye">
+            <input id="cloud-key" type="password" autocomplete="off">
+            <button type="button" class="btn-eye" onclick="toggleKeyVisibility('cloud-key')" title="Show / Hide API key">👁️</button>
+          </div>
+          <div id="cloud-key-status" class="key-status-hint"></div>
+        </label>
         <label class="f" id="cloud-url-box">Server address<input id="cloud-url" placeholder="https://…/v1"></label>
       </div>
     </section>
@@ -561,8 +657,26 @@
         <strong>What is local search?</strong> SearXNG is a free, open-source search engine running in Docker. Combines Google, Bing, Brave & DuckDuckGo without personal accounts.
       </p>
       <p class="hint" data-for-s="searxng" id="searxng-hint"></p>
-      <div class="fields" data-for-s="brave"><label class="f">Brave Search API key<input id="brave-key" type="password" autocomplete="off"></label></div>
-      <div class="fields" data-for-s="anthropic"><label class="f">Anthropic API key (shared with recognition)<input id="anthropic-key-2" type="password" autocomplete="off"></label></div>
+      <div class="fields" data-for-s="brave">
+        <label class="f">
+          Brave Search API key
+          <div class="input-with-eye">
+            <input id="brave-key" type="password" autocomplete="off">
+            <button type="button" class="btn-eye" onclick="toggleKeyVisibility('brave-key')" title="Show / Hide API key">👁️</button>
+          </div>
+          <div id="brave-key-status" class="key-status-hint"></div>
+        </label>
+      </div>
+      <div class="fields" data-for-s="anthropic">
+        <label class="f">
+          Anthropic API key (shared with recognition)
+          <div class="input-with-eye">
+            <input id="anthropic-key-2" type="password" autocomplete="off">
+            <button type="button" class="btn-eye" onclick="toggleKeyVisibility('anthropic-key-2')" title="Show / Hide API key">👁️</button>
+          </div>
+          <div id="anthropic-key-2-status" class="key-status-hint"></div>
+        </label>
+      </div>
     </section>
 
     <section class="card">
@@ -1214,8 +1328,25 @@ function renderSettings() {
   $("cloud-preset").replaceChildren(...presetOptions.map((p) => el("option", { value: p }, p)));
   if (vmode === "cloud") { $("cloud-preset").value = vp; $("cloud-model").value = model; $("cloud-url").value = values.TASADOR_VISION_BASE_URL || ""; }
 
-  for (const [id, key] of [["anthropic-key", "ANTHROPIC_API_KEY"], ["anthropic-key-2", "ANTHROPIC_API_KEY"], ["cloud-key", "TASADOR_VISION_API_KEY"], ["brave-key", "TASADOR_SEARCH_API_KEY"]]) {
-    $(id).value = ""; $(id).placeholder = secrets[key] ? "saved ✓ (leave empty to keep)" : "not set";
+  const secretKeyPairs = [
+    ["anthropic-key", "ANTHROPIC_API_KEY"],
+    ["anthropic-key-2", "ANTHROPIC_API_KEY"],
+    ["cloud-key", "TASADOR_VISION_API_KEY"],
+    ["brave-key", "TASADOR_SEARCH_API_KEY"]
+  ];
+  for (const [id, key] of secretKeyPairs) {
+    const rawVal = state.raw_secrets ? state.raw_secrets[key] || "" : "";
+    const preview = state.secret_previews ? state.secret_previews[key] || "" : "";
+    const isSet = !!secrets[key];
+    const input = $(id);
+    if (input) {
+      input.value = "";
+      input.placeholder = isSet ? "saved ✓ (leave empty to keep)" : "not set";
+      input.dataset.rawSecret = rawVal;
+      input.dataset.keyName = key;
+      input.dataset.cleared = "false";
+      renderKeyStatus(id, key, isSet, preview);
+    }
   }
 
   const sp = values.TASADOR_SEARCH_PROVIDER || "auto";
@@ -1229,11 +1360,277 @@ function renderSettings() {
   $("env-hint").textContent = env_file ? `Saved to ${env_file}.` : "Changes apply until engine stops.";
   showModes();
   renderArchitecture();
+  loadModelCatalog();
+}
+
+function renderKeyStatus(inputId, keyName, isSet, preview) {
+  const statusBox = $(inputId + "-status");
+  if (!statusBox) return;
+  if (!isSet) {
+    statusBox.className = "key-status-hint";
+    statusBox.innerHTML = `<span>⚪ No key configured (offline / free)</span>`;
+    return;
+  }
+  statusBox.className = "key-status-hint active";
+  statusBox.innerHTML = `
+    <span class="chip ok" style="padding:1px 6px; font-size:11px">✓ Key Set</span>
+    <span style="font-family:ui-monospace, monospace; font-size:11.5px">${preview || "••••••••"}</span>
+    <button type="button" class="btn btn-sm" onclick="copyKey('${inputId}')" style="padding:1px 6px; font-size:11px" title="Copy key">📋 Copy</button>
+    <button type="button" class="btn btn-sm btn-danger" onclick="clearKey('${inputId}', '${keyName}')" style="padding:1px 6px; font-size:11px" title="Clear key">🗑️ Clear</button>
+  `;
+}
+
+async function toggleKeyVisibility(inputId) {
+  const input = $(inputId);
+  if (!input) return;
+  const isPass = input.type === "password";
+  input.type = isPass ? "text" : "password";
+  const btn = input.parentElement ? input.parentElement.querySelector(".btn-eye") : null;
+  if (btn) btn.textContent = isPass ? "🙈" : "👁️";
+
+  if (isPass && !input.value) {
+    if (input.dataset.rawSecret) {
+      input.value = input.dataset.rawSecret;
+    } else if (input.dataset.keyName) {
+      try {
+        const res = await fetch("/ui/secrets/reveal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Tasador-UI": UI_KEY },
+          body: JSON.stringify({ key: input.dataset.keyName }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          input.value = data.value || "";
+          input.dataset.rawSecret = data.value || "";
+        }
+      } catch (e) {}
+    }
+  }
+}
+
+async function copyKey(inputId) {
+  const input = $(inputId);
+  if (!input) return;
+  let val = input.value || input.dataset.rawSecret || "";
+  if (!val && input.dataset.keyName) {
+    try {
+      const res = await fetch("/ui/secrets/reveal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Tasador-UI": UI_KEY },
+        body: JSON.stringify({ key: input.dataset.keyName }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        val = data.value || "";
+        input.dataset.rawSecret = val;
+      }
+    } catch (e) {}
+  }
+  if (!val) { alert("No key configured to copy"); return; }
+  navigator.clipboard.writeText(val);
+  alert("Key copied to clipboard!");
+}
+
+function clearKey(inputId, keyName) {
+  const input = $(inputId);
+  if (input) {
+    input.value = "";
+    input.dataset.rawSecret = "";
+    input.dataset.cleared = "true";
+  }
+  const statusBox = $(inputId + "-status");
+  if (statusBox) {
+    statusBox.className = "key-status-hint";
+    statusBox.innerHTML = `<span style="color:var(--bad); font-weight:600">🗑️ Key marked for removal. Click 'Save and apply' below to save changes.</span>`;
+  }
+}
+
+// ----------------- MODEL HUB & HARDWARE SIZING -----------------
+let modelCatalogData = null;
+let pullPollTimer = null;
+
+async function loadModelCatalog() {
+  try {
+    const res = await fetch("/ui/models");
+    if (!res.ok) return;
+    modelCatalogData = await res.json();
+    renderModelHub(modelCatalogData);
+
+    if (modelCatalogData.pull_status && modelCatalogData.pull_status.status === "pulling") {
+      if (!pullPollTimer) {
+        pullPollTimer = setInterval(pollPullStatus, 850);
+      }
+    }
+  } catch (e) {
+    console.error("Could not load model hub:", e);
+  }
+}
+
+async function pollPullStatus() {
+  try {
+    const res = await fetch("/ui/models/pull/status");
+    if (!res.ok) return;
+    const status = await res.json();
+    if (modelCatalogData) {
+      modelCatalogData.pull_status = status;
+      renderModelHub(modelCatalogData);
+    }
+    if (status.status === "completed" || status.status === "error" || status.status === "idle") {
+      clearInterval(pullPollTimer);
+      pullPollTimer = null;
+      await loadModelCatalog();
+      await loadSettings();
+    }
+  } catch (e) {}
+}
+
+function renderModelHub(data) {
+  if (!data) return;
+  const hw = data.hardware || {};
+  if ($("hw-gpu")) {
+    const vramStr = hw.vram_mb ? `${hw.vram_mb.toLocaleString()} MB VRAM` : "Integrated VRAM";
+    $("hw-gpu").textContent = `${hw.gpu_name || "GPU"} (${vramStr})`;
+  }
+  if ($("hw-ram")) {
+    const ramGb = hw.ram_mb ? (hw.ram_mb / 1024).toFixed(1) : "8.0";
+    $("hw-ram").textContent = `${ramGb} GB System RAM · ${hw.has_dedicated_gpu ? "CUDA GPU Dedicated" : "Shared System Memory"}`;
+  }
+
+  const container = $("model-hub-grid");
+  if (!container) return;
+
+  const pull = data.pull_status || {};
+  const isPullingGlobal = pull.status === "pulling";
+
+  container.replaceChildren(...data.models.map((m) => {
+    const isThisPulling = isPullingGlobal && pull.active_model === m.id;
+    const isCurrentActive = m.active;
+    const isInstalled = m.installed;
+
+    const card = el("div", { class: `model-hub-card ${isCurrentActive ? "active-card" : ""}` });
+
+    // Top Row
+    const topRow = el("div", { class: "model-card-top" },
+      el("div", {},
+        el("div", { class: "model-name" }, m.name),
+        el("div", { class: "model-meta" },
+          el("span", { class: "tag" }, m.params),
+          el("span", { class: "tag" }, m.quant),
+          el("span", { class: "tag" }, `~${(m.size_bytes / 1e9).toFixed(1)} GB`)
+        )
+      ),
+      el("div", { style: "text-align:right" },
+        isCurrentActive ? el("span", { class: "step-badge badge-ok" }, "⭐ Active")
+          : isInstalled ? el("span", { class: "step-badge badge-ok", style: "background:rgba(34,197,94,0.12)" }, "💾 Stored")
+          : el("span", { class: "step-badge badge-skipped" }, "☁️ Ollama")
+      )
+    );
+
+    // Fit & Speed
+    const fitRow = el("div", { style: "display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px" },
+      el("span", { class: `tag ${m.fit_level === "fits_vram" ? "ok" : ""}` }, m.fit_badge),
+      el("span", { class: "hint", style: "margin:0" }, m.speed)
+    );
+
+    // Description
+    const desc = el("div", { class: "model-desc" }, m.description);
+
+    // Footer actions
+    let actionContent;
+    if (isThisPulling) {
+      actionContent = el("div", { class: "pull-progress-box" },
+        el("div", { class: "pull-progress-bar-bg" },
+          el("div", { class: "pull-progress-fill", style: `width: ${pull.progress_percent}%` })
+        ),
+        el("div", { class: "pull-progress-text" },
+          el("span", {}, `${pull.progress_percent}% · ${pull.message || "Downloading…"}`),
+          el("button", { type: "button", class: "btn btn-sm btn-danger", style: "padding:1px 6px; font-size:10.5px", onclick: cancelPull }, "Cancel")
+        )
+      );
+    } else if (isCurrentActive) {
+      actionContent = el("div", { style: "display:flex; align-items:center; justify-content:space-between; width:100%" },
+        el("span", { class: "hint", style: "margin:0; color:var(--ok); font-weight:600" }, "✓ Active Model"),
+        el("button", { type: "button", class: "btn btn-sm", disabled: true }, "Active")
+      );
+    } else if (isInstalled) {
+      actionContent = el("div", { style: "display:flex; align-items:center; justify-content:space-between; width:100%" },
+        el("span", { class: "hint", style: "margin:0" }, "Ready in Ollama"),
+        el("button", { type: "button", class: "btn btn-sm btn-primary", onclick: () => activateModel(m.id) }, "⚡ Use Model")
+      );
+    } else {
+      actionContent = el("div", { style: "display:flex; align-items:center; justify-content:space-between; width:100%" },
+        el("span", { class: "hint", style: "margin:0" }, `~${(m.size_bytes / 1e9).toFixed(1)} GB`),
+        el("button", { type: "button", class: "btn btn-sm", onclick: () => pullModel(m.id), disabled: isPullingGlobal }, "⬇️ Download")
+      );
+    }
+
+    const actions = el("div", { class: "model-actions" }, actionContent);
+    card.append(topRow, fitRow, desc, actions);
+    return card;
+  }));
+}
+
+async function pullModel(modelId) {
+  if (!confirm(`Download and install ${modelId} locally in Ollama?`)) return;
+  try {
+    const res = await fetch("/ui/models/pull", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: modelId }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Could not start download");
+    }
+    if (!pullPollTimer) {
+      pullPollTimer = setInterval(pollPullStatus, 850);
+    }
+    await pollPullStatus();
+  } catch (err) {
+    alert(`Download failed: ${err.message}`);
+  }
+}
+
+async function cancelPull() {
+  try {
+    await fetch("/ui/models/cancel-pull", { method: "POST" });
+    clearInterval(pullPollTimer);
+    pullPollTimer = null;
+    await loadModelCatalog();
+  } catch (e) {}
+}
+
+async function activateModel(modelId) {
+  try {
+    const res = await fetch("/ui/models/activate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: modelId }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Could not activate model");
+    }
+    state = await res.json();
+    renderSettings();
+    await loadModelCatalog();
+    const toast = $("toast");
+    if (toast) {
+      toast.className = "ok";
+      toast.textContent = `Switched vision model to ${modelId}`;
+    }
+  } catch (err) {
+    alert(`Failed to activate model: ${err.message}`);
+  }
 }
 
 function collectChanges() {
   const c = {};
-  const secret = (key, id) => { const v = $(id).value.trim(); if (v) c[key] = v; };
+  const secret = (key, id) => {
+    const elInput = $(id);
+    if (!elInput) return;
+    const v = elInput.value.trim();
+    if (v) c[key] = v;
+    else if (elInput.dataset.cleared === "true") c[key] = "";
+  };
   switch (radio("vmode")) {
     case "local":
       c.TASADOR_VISION_PROVIDER = "ollama"; c.TASADOR_VISION_BASE_URL = "";
@@ -1323,6 +1720,13 @@ window.rerun = rerun;
 window.clearHistory = clearHistory;
 window.openLightbox = openLightbox;
 window.closeLightbox = closeLightbox;
+window.toggleKeyVisibility = toggleKeyVisibility;
+window.copyKey = copyKey;
+window.clearKey = clearKey;
+window.loadModelCatalog = loadModelCatalog;
+window.pullModel = pullModel;
+window.cancelPull = cancelPull;
+window.activateModel = activateModel;
 
 // Initial Load
 Promise.all([loadSettings(), loadHistory()]).then(() => {
