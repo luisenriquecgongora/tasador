@@ -26,6 +26,14 @@ try:  # optional extra: iPhone photos
 except ImportError:  # pragma: no cover - depends on installed extras
     HEIC_SUPPORTED = False
 
+try:
+    import pypdfium2 as pdfium
+
+    PDF_SUPPORTED = True
+except ImportError:  # pragma: no cover - depends on installed extras
+    pdfium = None
+    PDF_SUPPORTED = False
+
 
 class ImageError(ValueError):
     """A photo could not be used; the message is safe to show to the caller."""
@@ -37,11 +45,46 @@ class PreparedImage:
     image: Image.Image  # RGB, already resized; for local stages (OCR, barcodes)
 
 
+def is_pdf(data: bytes) -> bool:
+    """True if data begins with or contains standard PDF magic header."""
+    return data.lstrip().startswith(b"%PDF-") or b"%PDF-" in data[:1024]
+
+
+def _render_pdf(data: bytes, settings: Settings, label: str, max_pages: int | None = None) -> list[PreparedImage]:
+    if not PDF_SUPPORTED or pdfium is None:
+        raise ImageError(f"{label}: PDF documents require pypdfium2 (pip install pypdfium2)")
+    try:
+        doc = pdfium.PdfDocument(data)
+    except Exception as exc:
+        raise ImageError(f"{label}: not a readable PDF ({type(exc).__name__})") from exc
+
+    page_count = len(doc)
+    if page_count == 0:
+        raise ImageError(f"{label}: PDF document contains no pages")
+
+    limit = min(page_count, max_pages) if max_pages is not None else page_count
+    results: list[PreparedImage] = []
+    for page_idx in range(limit):
+        try:
+            page = doc[page_idx]
+            pil_img = page.render(scale=2.0).to_pil().convert("RGB")
+        except Exception as exc:
+            raise ImageError(f"{label} (page {page_idx + 1}): failed to render ({type(exc).__name__})") from exc
+        pil_img.thumbnail((settings.max_image_side, settings.max_image_side))
+        out = io.BytesIO()
+        pil_img.save(out, format="JPEG", quality=90)
+        results.append(PreparedImage(jpeg=out.getvalue(), image=pil_img))
+    return results
+
+
 def prepare(data: bytes, settings: Settings, label: str) -> PreparedImage:
     if not data:
         raise ImageError(f"{label}: empty file")
     if len(data) > settings.max_image_bytes:
         raise ImageError(f"{label}: larger than {settings.max_image_bytes // (1024 * 1024)} MB")
+    if is_pdf(data):
+        pages = _render_pdf(data, settings, label, max_pages=1)
+        return pages[0]
     try:
         with Image.open(io.BytesIO(data)) as raw:
             raw.load()
@@ -53,6 +96,19 @@ def prepare(data: bytes, settings: Settings, label: str) -> PreparedImage:
     out = io.BytesIO()
     img.save(out, format="JPEG", quality=90)
     return PreparedImage(jpeg=out.getvalue(), image=img)
+
+
+def prepare_many(
+    data: bytes, settings: Settings, label: str, max_pages: int | None = None
+) -> list[PreparedImage]:
+    """Prepare an image or PDF. For PDFs, renders up to max_pages into PreparedImage objects."""
+    if not data:
+        raise ImageError(f"{label}: empty file")
+    if len(data) > settings.max_image_bytes:
+        raise ImageError(f"{label}: larger than {settings.max_image_bytes // (1024 * 1024)} MB")
+    if is_pdf(data):
+        return _render_pdf(data, settings, label, max_pages=max_pages)
+    return [prepare(data, settings, label)]
 
 
 def check_url_allowed(url: str, settings: Settings) -> None:

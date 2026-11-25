@@ -179,6 +179,7 @@ class Capabilities(BaseModel):
     engine_version: str
     provider: ProviderInfo
     heic: bool
+    pdf: bool = False
     url_images: bool
     max_images: int
     max_image_bytes: int
