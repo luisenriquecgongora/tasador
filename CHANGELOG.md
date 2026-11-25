@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.4.0](https://github.com/luisenriquecgongora/tasador/compare/v0.3.0...v0.4.0) (2026-11-25)
+
+
+### Features
+
+* **api:** expose PDF support in /v1/identify and add automated tests ([4d87701](https://github.com/luisenriquecgongora/tasador/commit/4d87701d1d868cbdcab6db6911719bc4d1a33517))
+* **desktop:** add live pipeline inspector and execution history ([14ea1a5](https://github.com/luisenriquecgongora/tasador/commit/14ea1a565679e8a02a8a8cffb48344f3d04e56f0))
+* **desktop:** auto-adopt running engine and clarify search status ([36dff2c](https://github.com/luisenriquecgongora/tasador/commit/36dff2c8f5c9edb658fc2fb07db86363bf6e5df6))
+* **engine:** add activity tracking and rerun endpoints ([76a7c4d](https://github.com/luisenriquecgongora/tasador/commit/76a7c4da4a0d4b0edcd6898bf1a310ac14490156))
+* **engine:** add PDF parsing and rasterization pipeline via pypdfium2 ([2ef23fb](https://github.com/luisenriquecgongora/tasador/commit/2ef23fb1dbe88a749b00128c8b22d6c1fa2b2ba7))
+* **pipeline:** add document OCR fallback heuristics for name brand and price ([0ce845a](https://github.com/luisenriquecgongora/tasador/commit/0ce845a3d302dc61f171cbc5495627bbdf83c64a))
+* sqlite activity persistence and desktop window sizing for split studio ([41c7111](https://github.com/luisenriquecgongora/tasador/commit/41c7111243dd1aadff3bff696b0d69e49a3d031c))
+* **studio:** add architecture and interactive pipeline DAG tab ([b3cdb44](https://github.com/luisenriquecgongora/tasador/commit/b3cdb442cd43bf8a0f1446f1b69147761e87c050))
+* **studio:** side-by-side split layout for pipeline inspector and document viewer ([4b7c1c5](https://github.com/luisenriquecgongora/tasador/commit/4b7c1c5bff3fe49a406b5bb40408016c3517461b))
+* **ui:** add model hub hardware sizing and api key visibility toggle ([fdd8568](https://github.com/luisenriquecgongora/tasador/commit/fdd8568cfe662cd89cdc141a5906aee0e45309e1))
+
+
+### Bug Fixes
+
+* **cors:** allow all headers for browser preflight and isolate test db ([0099606](https://github.com/luisenriquecgongora/tasador/commit/009960650199a768444a72bcaa221fca139d2d13))
+* **desktop:** integrate single-instance plugin and prevent webview lock crashes ([bfca43d](https://github.com/luisenriquecgongora/tasador/commit/bfca43d421229fc52c2013421c631976658a7a60))
+* **pipeline:** add live step tracking and fix status transition ([5b64d11](https://github.com/luisenriquecgongora/tasador/commit/5b64d11557ba7cfcaff5ed34e11e49ae8f0977b8))
+* **studio:** fix event listener binding in el helper so Inspect Trace works ([1f6d570](https://github.com/luisenriquecgongora/tasador/commit/1f6d5701d175b4646dccae372e5bfc65bcc53faf))
+
 ## [0.3.0](https://github.com/luisenriquecgongora/tasador/compare/v0.2.0...v0.3.0) (2026-11-23)
 
 
