@@ -12,6 +12,7 @@ the response carries whatever the other stages found.
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 from datetime import date
 
@@ -36,12 +37,98 @@ from .schemas import (
     Identification,
     Links,
     Price,
+    PriceRange,
     ProviderInfo,
 )
 
 
 def _clamp(value: float) -> float:
     return round(min(max(value, 0.0), 1.0), 3)
+
+
+def _extract_fallback_name_brand(ocr_text: list[str]) -> tuple[str | None, str | None, str | None, float]:
+    name: str | None = None
+    brand: str | None = None
+    model: str | None = None
+    conf = 0.0
+
+    potential_names: list[str] = []
+    found_table = False
+
+    for line in ocr_text:
+        s = line.strip()
+        if not s:
+            continue
+        # Check brand
+        if not brand:
+            m = re.search(r"(?:producent|marka|brand|maker|manufacturer)[:\s]+(.+)", s, re.I)
+            if m and m.group(1).strip():
+                brand = m.group(1).strip()
+            elif re.search(r"\bikea\b", s, re.I):
+                brand = "IKEA"
+            elif re.search(r"\bpioneer(?:\s*dj)?\b", s, re.I):
+                brand = "Pioneer DJ"
+
+        # Check model
+        if not model:
+            m = re.search(r"(?:model|typ|model\s*nr)[:\s]+(.+)", s, re.I)
+            if m and m.group(1).strip():
+                model = m.group(1).strip()
+
+        # Check explicit item name
+        if not name:
+            m = re.search(r"(?:nazwa\s*(?:towaru|przedmiotu|uslugi)?|item|product|przedmiot|towar|artykul)[:\s]+(.+)", s, re.I)
+            if m and m.group(1).strip():
+                name = m.group(1).strip()
+
+        if re.match(r"^produkt$", s, re.I):
+            found_table = True
+        elif found_table and not name and len(s) > 5:
+            if (
+                not re.match(r"^(?:nr:)?f/\d+", s, re.I)
+                and not re.match(r"^(?:cena|brutto|netto|vat|stawka|polska|suma|ilosc|wartosc|szt|podatki|twoje|nabywca|sprzedawca)", s, re.I)
+                and not re.search(r"sp[.\s]*z[.\s]*o[.\s]*o|s\.a\.|nabywca|buyer", s, re.I)
+                and not re.match(r"^\d+([.,]\d+)?$", s)
+            ):
+                potential_names.append(s)
+
+    if not name and potential_names:
+        name = potential_names[0]
+    if name:
+        conf = 0.5
+    return name, brand, model, conf
+
+
+def _extract_fallback_price(ocr_text: list[str], default_currency: str = "PLN") -> Price | None:
+    for i, line in enumerate(ocr_text):
+        s = line.strip()
+        m = re.search(
+            r"(?:wartosc\s*brutto|kwota\s*brutto|suma\s*brutto|brutto|gross|razem(?:\s*brutto)?|total|zap[lłt]acono|zaplacono|do\s*zap[lłt]aty)[:\s]+([0-9\s.,]+)\s*([A-Za-z]{3})?",
+            s,
+            re.I,
+        )
+        if m:
+            raw_num = m.group(1).replace(" ", "").replace(",", ".")
+            try:
+                num = float(raw_num)
+                curr = m.group(2).upper() if m.group(2) else default_currency
+                return Price(currency=curr, new=PriceRange(min=num, median=num, max=num, count=1))
+            except ValueError:
+                pass
+        elif re.search(r"(?:suma\s*brutto|wartosc\s*brutto|razem\s*brutto|zap[lłt]acono)", s, re.I):
+            for j in range(i + 1, min(i + 4, len(ocr_text))):
+                nxt = ocr_text[j].strip()
+                if "%" in nxt:
+                    continue
+                nxt_m = re.match(r"^([0-9\s.,]+)(?:\s*([A-Za-z]{3}))?$", nxt)
+                if nxt_m:
+                    try:
+                        num = float(nxt_m.group(1).replace(" ", "").replace(",", "."))
+                        curr = nxt_m.group(2).upper() if nxt_m.group(2) else default_currency
+                        return Price(currency=curr, new=PriceRange(min=num, median=num, max=num, count=1))
+                    except ValueError:
+                        pass
+    return None
 
 
 def _read_locally(images: list[PreparedImage]) -> tuple[Extracted, list[list[str]]]:
@@ -223,6 +310,10 @@ class Pipeline:
             ]
 
             links, price = Links(), Price(currency=context.currency)
+            if not price.new and extracted.ocr_text:
+                fb_price = _extract_fallback_price(extracted.ocr_text, context.currency or "PLN")
+                if fb_price:
+                    price = fb_price
             if context.search_prices and best.key:
                 if self.search is None:
                     warnings.append("no web search provider configured: no links or prices")
@@ -358,6 +449,11 @@ class Pipeline:
             warnings.append(f"type '{item_type}' is not in allowed_types; left empty")
             item_type = None
 
+        name = result.name
+        brand = result.brand
+        model = result.model
+        conf = result.confidence
+
         evidence: list[str] = []
         if extracted.barcodes:
             evidence.append(f"barcode:{len(extracted.barcodes)}")
@@ -365,6 +461,14 @@ class Pipeline:
             evidence.append("ocr:printed-text")
         if result.name:
             evidence.append("vision")
+        elif extracted.ocr_text:
+            fb_name, fb_brand, fb_model, fb_conf = _extract_fallback_name_brand(extracted.ocr_text)
+            if fb_name:
+                name = fb_name
+                brand = brand or fb_brand
+                model = model or fb_model
+                conf = fb_conf
+                evidence.append("ocr:document-heuristics")
 
         serial = result.serial_number
         # A serial the model "saw" but that the local reader never read is likely invented.
@@ -373,14 +477,14 @@ class Pipeline:
 
         gtin = find_gtin(extracted.barcodes, extracted.ocr_text)
         return Identification(
-            name=result.name,
-            brand=result.brand,
-            model=result.model,
+            name=name,
+            brand=brand,
+            model=model,
             type=item_type,
             gtin=gtin,
             serial_number=serial,
             description=result.description,
-            confidence=_clamp(result.confidence),
+            confidence=_clamp(conf),
             evidence=evidence,
-            key=product_key(gtin, result.brand, result.model, result.name),
+            key=product_key(gtin, brand, model, name),
         )
